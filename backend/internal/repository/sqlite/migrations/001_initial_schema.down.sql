@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS exchange_rates;
+DROP TABLE IF EXISTS stock_categories;
+DROP TABLE IF EXISTS allocation_targets;
+DROP TABLE IF EXISTS trades;
+DROP TABLE IF EXISTS portfolios;
+DROP TABLE IF EXISTS watchlist_items;
+DROP TABLE IF EXISTS watchlists;
+DROP TABLE IF EXISTS fundamentals;
+DROP TABLE IF EXISTS price_history;
+DROP TABLE IF EXISTS price_cache;
+DROP TABLE IF EXISTS stocks;

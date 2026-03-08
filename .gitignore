@@ -1,0 +1,26 @@
+# Go
+backend/tmp/
+backend/stockpilot-server
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Node
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
