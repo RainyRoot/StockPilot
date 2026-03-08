@@ -22,10 +22,13 @@ func main() {
 	defer db.Close()
 
 	stockRepo := sqlite.NewStockRepo(db)
+	watchlistRepo := sqlite.NewWatchlistRepo(db)
 	yahooClient := scraper.NewYahooClient()
 	stockService := service.NewStockService(stockRepo, yahooClient, cfg.CacheTTLSecs)
+	watchlistService := service.NewWatchlistService(watchlistRepo, stockRepo, yahooClient, cfg.CacheTTLSecs)
 	stockHandler := handler.NewStockHandler(stockService)
-	router := handler.NewRouter(cfg.FrontendURL, stockHandler)
+	watchlistHandler := handler.NewWatchlistHandler(watchlistService)
+	router := handler.NewRouter(cfg.FrontendURL, stockHandler, watchlistHandler)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("StockPilot API server starting on %s", addr)

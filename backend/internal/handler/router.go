@@ -7,7 +7,7 @@ import (
 	"github.com/rainyroot/stockpilot/backend/pkg/httputil"
 )
 
-func NewRouter(frontendURL string, stockHandler *StockHandler) http.Handler {
+func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler *WatchlistHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(Logger)
@@ -21,6 +21,16 @@ func NewRouter(frontendURL string, stockHandler *StockHandler) http.Handler {
 		r.Get("/search", stockHandler.Search)
 		r.Get("/{ticker}", stockHandler.GetQuote)
 		r.Get("/{ticker}/history", stockHandler.GetHistory)
+	})
+
+	r.Route("/api/v1/watchlists", func(r chi.Router) {
+		r.Get("/", watchlistHandler.List)
+		r.Post("/", watchlistHandler.Create)
+		r.Get("/{id}", watchlistHandler.Get)
+		r.Put("/{id}", watchlistHandler.Update)
+		r.Delete("/{id}", watchlistHandler.Delete)
+		r.Post("/{id}/stocks", watchlistHandler.AddStock)
+		r.Delete("/{id}/stocks", watchlistHandler.RemoveStock)
 	})
 
 	return r
