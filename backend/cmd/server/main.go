@@ -23,12 +23,16 @@ func main() {
 
 	stockRepo := sqlite.NewStockRepo(db)
 	watchlistRepo := sqlite.NewWatchlistRepo(db)
+	portfolioRepo := sqlite.NewPortfolioRepo(db)
+	tradeRepo := sqlite.NewTradeRepo(db)
 	yahooClient := scraper.NewYahooClient()
 	stockService := service.NewStockService(stockRepo, yahooClient, cfg.CacheTTLSecs)
 	watchlistService := service.NewWatchlistService(watchlistRepo, stockRepo, yahooClient, cfg.CacheTTLSecs)
+	portfolioService := service.NewPortfolioService(portfolioRepo, tradeRepo, stockRepo, yahooClient)
 	stockHandler := handler.NewStockHandler(stockService)
 	watchlistHandler := handler.NewWatchlistHandler(watchlistService)
-	router := handler.NewRouter(cfg.FrontendURL, stockHandler, watchlistHandler)
+	portfolioHandler := handler.NewPortfolioHandler(portfolioService)
+	router := handler.NewRouter(cfg.FrontendURL, stockHandler, watchlistHandler, portfolioHandler)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("StockPilot API server starting on %s", addr)

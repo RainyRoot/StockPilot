@@ -195,7 +195,7 @@
           onclick={() => selectWatchlist(wl.id)}
         >
           {wl.name}
-          <button class="tab-delete" onclick={(e) => { e.stopPropagation(); handleDeleteWatchlist(wl.id); }}>×</button>
+          <span class="tab-delete" role="button" tabindex="0" onclick={(e) => { e.stopPropagation(); handleDeleteWatchlist(wl.id); }} onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleDeleteWatchlist(wl.id); } }}>×</span>
         </button>
       {/each}
     </div>
