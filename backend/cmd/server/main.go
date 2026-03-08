@@ -34,7 +34,9 @@ func main() {
 	portfolioHandler := handler.NewPortfolioHandler(portfolioService)
 	dashboardService := service.NewDashboardService(portfolioRepo, tradeRepo, stockRepo, yahooClient, portfolioService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
-	router := handler.NewRouter(cfg.FrontendURL, stockHandler, watchlistHandler, portfolioHandler, dashboardHandler)
+	valuationService := service.NewValuationService(stockRepo, yahooClient)
+	valuationHandler := handler.NewValuationHandler(valuationService)
+	router := handler.NewRouter(cfg.FrontendURL, stockHandler, watchlistHandler, portfolioHandler, dashboardHandler, valuationHandler)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("StockPilot API server starting on %s", addr)

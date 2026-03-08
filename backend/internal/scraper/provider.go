@@ -12,4 +12,5 @@ type DataProvider interface {
 	SearchStock(ctx context.Context, query string) ([]domain.StockSearchResult, error)
 	GetHistory(ctx context.Context, ticker string, rangeStr string, interval string) ([]domain.PricePoint, error)
 	GetExchangeRate(ctx context.Context, from, to string) (float64, error)
+	GetFundamentals(ctx context.Context, ticker string) (*domain.Fundamentals, error)
 }

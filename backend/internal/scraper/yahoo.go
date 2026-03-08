@@ -263,6 +263,65 @@ func (c *YahooClient) GetHistory(ctx context.Context, ticker string, rangeStr st
 	return points, nil
 }
 
+func (c *YahooClient) GetFundamentals(ctx context.Context, ticker string) (*domain.Fundamentals, error) {
+	modules := "financialData,defaultKeyStatistics,incomeStatementHistory,cashflowStatementHistory"
+	reqURL := fmt.Sprintf(
+		"https://query2.finance.yahoo.com/v10/finance/quoteSummary/%s?modules=%s",
+		url.PathEscape(ticker), url.QueryEscape(modules),
+	)
+
+	c.crumbMu.RLock()
+	if c.crumb != "" {
+		reqURL += "&crumb=" + url.QueryEscape(c.crumb)
+	}
+	c.crumbMu.RUnlock()
+
+	body, err := c.doRequest(ctx, reqURL)
+	if err != nil {
+		return nil, fmt.Errorf("fetch fundamentals for %s: %w", ticker, err)
+	}
+
+	var resp yahooQuoteSummaryResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("parse quoteSummary for %s: %w", ticker, err)
+	}
+
+	if len(resp.QuoteSummary.Result) == 0 {
+		return nil, fmt.Errorf("no fundamentals data for %s", ticker)
+	}
+
+	r := resp.QuoteSummary.Result[0]
+	fd := r.FinancialData
+	ks := r.DefaultKeyStatistics
+
+	// Net income: try financialData first, fall back to incomeStatementHistory
+	netIncome := fd.NetIncome.Raw
+	if netIncome == 0 && len(r.IncomeStatementHistory.IncomeStatementHistory) > 0 {
+		netIncome = r.IncomeStatementHistory.IncomeStatementHistory[0].NetIncome.Raw
+	}
+
+	// Free cash flow: try financialData first, fall back to cashflowStatementHistory
+	fcf := fd.FreeCashflow.Raw
+	if fcf == 0 && len(r.CashflowStatementHistory.CashflowStatements) > 0 {
+		cf := r.CashflowStatementHistory.CashflowStatements[0]
+		fcf = cf.TotalCashFromOperatingActivities.Raw + cf.CapitalExpenditures.Raw // capex is negative
+	}
+
+	return &domain.Fundamentals{
+		FiscalYear:        time.Now().Year(),
+		RevenueCents:      money.FloatToCents(fd.TotalRevenue.Raw),
+		NetIncomeCents:    money.FloatToCents(netIncome),
+		EPSCents:          money.FloatToCents(ks.TrailingEps.Raw),
+		BookValueCents:    money.FloatToCents(ks.BookValue.Raw),
+		FreeCashFlowCents: money.FloatToCents(fcf),
+		SharesOutstanding: int64(ks.SharesOutstanding.Raw),
+		DebtCents:         money.FloatToCents(fd.TotalDebt.Raw),
+		CashCents:         money.FloatToCents(fd.TotalCash.Raw),
+		ROE:               fd.ReturnOnEquity.Raw,
+		ProfitMargin:      fd.ProfitMargins.Raw,
+	}, nil
+}
+
 func (c *YahooClient) GetExchangeRate(ctx context.Context, from, to string) (float64, error) {
 	ticker := fmt.Sprintf("%s%s=X", from, to)
 	quote, err := c.GetQuote(ctx, ticker)

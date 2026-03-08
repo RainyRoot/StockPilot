@@ -40,6 +40,56 @@ type yahooSearchQuote struct {
 	QuoteType string `json:"quoteType"`
 }
 
+// Yahoo Finance v10 quoteSummary response
+type yahooQuoteSummaryResponse struct {
+	QuoteSummary struct {
+		Result []struct {
+			FinancialData            yahooFinancialData          `json:"financialData"`
+			DefaultKeyStatistics     yahooKeyStatistics          `json:"defaultKeyStatistics"`
+			IncomeStatementHistory   yahooIncomeStatementHistory `json:"incomeStatementHistory"`
+			CashflowStatementHistory yahooCashflowHistory        `json:"cashflowStatementHistory"`
+		} `json:"result"`
+	} `json:"quoteSummary"`
+}
+
+type yahooFinancialData struct {
+	TotalRevenue   yahooRawField `json:"totalRevenue"`
+	NetIncome      yahooRawField `json:"netIncome,omitempty"`
+	FreeCashflow   yahooRawField `json:"freeCashflow"`
+	TotalDebt      yahooRawField `json:"totalDebt"`
+	TotalCash      yahooRawField `json:"totalCash"`
+	ProfitMargins  yahooRawField `json:"profitMargins"`
+	ReturnOnEquity yahooRawField `json:"returnOnEquity"`
+}
+
+type yahooKeyStatistics struct {
+	TrailingEps       yahooRawField `json:"trailingEps"`
+	BookValue         yahooRawField `json:"bookValue"`
+	SharesOutstanding yahooRawField `json:"sharesOutstanding"`
+	PegRatio          yahooRawField `json:"pegRatio"`
+	ForwardEps        yahooRawField `json:"forwardEps"`
+	EnterpriseValue   yahooRawField `json:"enterpriseValue"`
+}
+
+type yahooRawField struct {
+	Raw float64 `json:"raw"`
+}
+
+type yahooIncomeStatementHistory struct {
+	IncomeStatementHistory []struct {
+		TotalRevenue yahooRawField `json:"totalRevenue"`
+		NetIncome    yahooRawField `json:"netIncome"`
+	} `json:"incomeStatementHistory"`
+}
+
+type yahooCashflowHistory struct {
+	CashflowStatements []struct {
+		FreeCashFlow                    yahooRawField `json:"freeCashFlow,omitempty"`
+		TotalCashFromOperatingActivities yahooRawField `json:"totalCashFromOperatingActivities"`
+		CapitalExpenditures             yahooRawField `json:"capitalExpenditures"`
+	} `json:"cashflowStatements"`
+}
+
 // Yahoo Finance v8 chart response
 type yahooChartResponse struct {
 	Chart struct {
