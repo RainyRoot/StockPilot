@@ -1,278 +1,209 @@
 <script lang="ts">
-  import { searchStocks, getStockQuote, type StockSearchResult, type StockQuoteResponse } from '$lib/api/stocks';
-  import { formatCents, formatPercent, formatVolume } from '$lib/utils/format';
+  import {
+    getDashboard,
+    getPerformance,
+    getHoldingsPL,
+    type DashboardData,
+    type PortfolioSnapshot,
+    type HoldingPL,
+  } from '$lib/api/dashboard';
+  import { formatCents, formatPercent } from '$lib/utils/format';
+  import PerformanceChart from '$lib/components/PerformanceChart.svelte';
+  import PLBarChart from '$lib/components/PLBarChart.svelte';
 
-  let query = $state('');
-  let searchResults = $state<StockSearchResult[]>([]);
-  let selectedStock = $state<StockQuoteResponse | null>(null);
-  let loading = $state(false);
+  let dashboard = $state<DashboardData | null>(null);
+  let snapshots = $state<PortfolioSnapshot[]>([]);
+  let holdingsPL = $state<HoldingPL[]>([]);
+  let loading = $state(true);
   let error = $state('');
-  let searchTimeout: ReturnType<typeof setTimeout>;
+  let selectedPortfolioId = $state<number | null>(null);
+  let selectedRange = $state('3m');
+  let selectedCurrency = $state('EUR');
 
-  function handleSearch() {
-    clearTimeout(searchTimeout);
-    error = '';
+  const ranges = ['1m', '3m', '6m', 'ytd', '1y', 'all'];
 
-    if (query.length < 1) {
-      searchResults = [];
-      return;
-    }
-
-    searchTimeout = setTimeout(async () => {
-      try {
-        loading = true;
-        searchResults = await searchStocks(query);
-      } catch (e) {
-        error = e instanceof Error ? e.message : 'Search failed';
-      } finally {
-        loading = false;
-      }
-    }, 300);
-  }
-
-  async function selectStock(ticker: string) {
+  async function loadDashboard() {
     try {
       loading = true;
-      error = '';
-      selectedStock = await getStockQuote(ticker);
-      searchResults = [];
-      query = '';
+      dashboard = await getDashboard();
+      if (dashboard.summaries.length > 0) {
+        selectedPortfolioId = dashboard.summaries[0].portfolio_id;
+        selectedCurrency = dashboard.summaries[0].currency;
+        await loadCharts();
+      }
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load stock';
+      error = e instanceof Error ? e.message : 'Failed to load dashboard';
     } finally {
       loading = false;
     }
   }
+
+  async function loadCharts() {
+    if (!selectedPortfolioId) return;
+    try {
+      const [perf, pl] = await Promise.all([
+        getPerformance(selectedPortfolioId, selectedRange),
+        getHoldingsPL(selectedPortfolioId),
+      ]);
+      snapshots = perf;
+      holdingsPL = pl;
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to load charts';
+    }
+  }
+
+  async function selectPortfolio(id: number, currency: string) {
+    selectedPortfolioId = id;
+    selectedCurrency = currency;
+    await loadCharts();
+  }
+
+  async function changeRange(range: string) {
+    selectedRange = range;
+    await loadCharts();
+  }
+
+  $effect(() => {
+    loadDashboard();
+  });
 </script>
 
 <div class="dashboard">
-  <h2>Stock Search</h2>
-
-  <div class="search-box">
-    <input
-      type="text"
-      placeholder="Search stocks (e.g., AAPL, SAP.DE)..."
-      bind:value={query}
-      oninput={handleSearch}
-    />
-    {#if loading}
-      <span class="loading">Loading...</span>
-    {/if}
-  </div>
+  <h2>Dashboard</h2>
 
   {#if error}
     <div class="error">{error}</div>
   {/if}
 
-  {#if searchResults.length > 0}
-    <div class="search-results">
-      {#each searchResults as result}
-        <button class="result-item" onclick={() => selectStock(result.ticker)}>
-          <span class="ticker">{result.ticker}</span>
-          <span class="name">{result.name}</span>
-          <span class="exchange">{result.exchange}</span>
-        </button>
-      {/each}
-    </div>
-  {/if}
-
-  {#if selectedStock}
-    {@const q = selectedStock.quote}
-    {@const s = selectedStock.stock}
-    <div class="stock-detail">
-      <div class="stock-header">
-        <h3>{s.ticker} — {s.name}</h3>
-        <span class="exchange-badge">{s.exchange} · {s.currency}</span>
+  {#if loading}
+    <p class="loading-text">Loading dashboard...</p>
+  {:else if dashboard}
+    <!-- Total Overview -->
+    <div class="overview-cards">
+      <div class="card">
+        <span class="card-label">Total Value</span>
+        <span class="card-value">{formatCents(dashboard.total_value_cents, selectedCurrency)}</span>
       </div>
-      <div class="price-row">
-        <span class="price">{formatCents(q.price_cents, q.currency)}</span>
-        <span class="change" class:positive={q.change_percent >= 0} class:negative={q.change_percent < 0}>
-          {formatPercent(q.change_percent)}
+      <div class="card">
+        <span class="card-label">Total P&L</span>
+        <span class="card-value" class:positive={dashboard.total_pl_cents >= 0} class:negative={dashboard.total_pl_cents < 0}>
+          {formatCents(dashboard.total_pl_cents, selectedCurrency)} ({formatPercent(dashboard.total_pl_percent)})
         </span>
       </div>
-      <div class="details-grid">
-        <div class="detail">
-          <span class="label">Open</span>
-          <span class="value">{formatCents(q.open_cents, q.currency)}</span>
-        </div>
-        <div class="detail">
-          <span class="label">High</span>
-          <span class="value">{formatCents(q.high_cents, q.currency)}</span>
-        </div>
-        <div class="detail">
-          <span class="label">Low</span>
-          <span class="value">{formatCents(q.low_cents, q.currency)}</span>
-        </div>
-        <div class="detail">
-          <span class="label">Volume</span>
-          <span class="value">{formatVolume(q.volume)}</span>
-        </div>
-      </div>
     </div>
+
+    <!-- Portfolio Cards -->
+    {#if dashboard.summaries.length > 0}
+      <div class="portfolio-cards">
+        {#each dashboard.summaries as s}
+          <button
+            class="portfolio-card"
+            class:active={selectedPortfolioId === s.portfolio_id}
+            onclick={() => selectPortfolio(s.portfolio_id, s.currency)}
+          >
+            <div class="pc-header">
+              <span class="pc-name">{s.portfolio_name}</span>
+              <span class="pc-currency">{s.currency}</span>
+            </div>
+            <div class="pc-value">{formatCents(s.total_value_cents, s.currency)}</div>
+            <div class="pc-pl" class:positive={s.unrealized_pl_cents >= 0} class:negative={s.unrealized_pl_cents < 0}>
+              {formatCents(s.unrealized_pl_cents, s.currency)} ({formatPercent(s.unrealized_pl_percent)})
+            </div>
+            <div class="pc-day" class:positive={s.day_change_cents >= 0} class:negative={s.day_change_cents < 0}>
+              Today: {formatCents(s.day_change_cents, s.currency)} ({formatPercent(s.day_change_percent)})
+            </div>
+            <div class="pc-count">{s.holdings_count} holdings</div>
+          </button>
+        {/each}
+      </div>
+    {:else}
+      <p class="empty-text">No portfolios yet. Create one on the <a href="/portfolio">Portfolio</a> page.</p>
+    {/if}
+
+    <!-- Charts Section -->
+    {#if selectedPortfolioId}
+      <div class="charts-section">
+        <div class="chart-header">
+          <h3>Performance</h3>
+          <div class="range-buttons">
+            {#each ranges as r}
+              <button
+                class="range-btn"
+                class:active={selectedRange === r}
+                onclick={() => changeRange(r)}
+              >
+                {r.toUpperCase()}
+              </button>
+            {/each}
+          </div>
+        </div>
+        <PerformanceChart {snapshots} currency={selectedCurrency} />
+      </div>
+
+      {#if holdingsPL.length > 0}
+        <div class="charts-section">
+          <h3>P&L by Stock</h3>
+          <PLBarChart holdings={holdingsPL} currency={selectedCurrency} />
+        </div>
+      {/if}
+    {/if}
   {/if}
 </div>
 
 <style>
-  .dashboard {
-    max-width: 800px;
-  }
-
-  h2 {
-    color: #e1e4e8;
-    margin-bottom: 1rem;
-  }
-
-  .search-box {
-    position: relative;
-    margin-bottom: 1rem;
-  }
-
-  .search-box input {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    color: #e1e4e8;
-    font-size: 1rem;
-    outline: none;
-    box-sizing: border-box;
-  }
-
-  .search-box input:focus {
-    border-color: #58a6ff;
-  }
-
-  .loading {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #8b949e;
-    font-size: 0.85rem;
-  }
+  .dashboard { max-width: 1100px; }
+  .dashboard h2 { margin: 0 0 1.5rem; }
+  .dashboard h3 { margin: 0 0 1rem; font-size: 1rem; }
 
   .error {
-    background: #3d1f1f;
-    border: 1px solid #f85149;
-    color: #f85149;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
-    font-size: 0.9rem;
+    background: #3d1f1f; border: 1px solid #f85149; color: #f85149;
+    padding: 0.5rem 1rem; border-radius: 6px; margin-bottom: 1rem;
   }
 
-  .search-results {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    overflow: hidden;
-    margin-bottom: 1rem;
+  .overview-cards {
+    display: flex; gap: 1rem; margin-bottom: 1.5rem;
   }
+  .card {
+    flex: 1; padding: 1.25rem; background: #161b22;
+    border: 1px solid #30363d; border-radius: 6px;
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .card-label { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; }
+  .card-value { font-size: 1.5rem; font-weight: 700; }
 
-  .result-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    width: 100%;
-    padding: 0.6rem 1rem;
-    background: none;
-    border: none;
-    border-bottom: 1px solid #21262d;
-    color: #e1e4e8;
-    cursor: pointer;
-    text-align: left;
-    font-size: 0.9rem;
+  .portfolio-cards {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem; margin-bottom: 1.5rem;
   }
+  .portfolio-card {
+    padding: 1rem; background: #161b22; border: 1px solid #30363d;
+    border-radius: 6px; cursor: pointer; text-align: left;
+    color: #e1e4e8; font-family: inherit; font-size: inherit;
+    transition: border-color 0.15s;
+  }
+  .portfolio-card:hover { border-color: #484f58; }
+  .portfolio-card.active { border-color: #58a6ff; }
+  .pc-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+  .pc-name { font-weight: 600; }
+  .pc-currency { font-size: 0.8rem; color: #8b949e; }
+  .pc-value { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .pc-pl { font-size: 0.9rem; margin-bottom: 0.25rem; }
+  .pc-day { font-size: 0.8rem; color: #8b949e; margin-bottom: 0.25rem; }
+  .pc-count { font-size: 0.75rem; color: #484f58; }
 
-  .result-item:hover {
-    background: #1c2128;
-  }
+  .positive { color: #3fb950; }
+  .negative { color: #f85149; }
 
-  .result-item:last-child {
-    border-bottom: none;
+  .charts-section { margin-bottom: 1.5rem; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .range-buttons { display: flex; gap: 0.25rem; }
+  .range-btn {
+    padding: 0.3rem 0.6rem; background: #21262d; border: 1px solid #30363d;
+    border-radius: 4px; color: #8b949e; cursor: pointer; font-size: 0.75rem;
   }
+  .range-btn.active { background: #30363d; color: #e1e4e8; border-color: #58a6ff; }
+  .range-btn:hover { color: #e1e4e8; }
 
-  .result-item .ticker {
-    font-weight: 600;
-    color: #58a6ff;
-    min-width: 80px;
-  }
-
-  .result-item .name {
-    flex: 1;
-    color: #8b949e;
-  }
-
-  .result-item .exchange {
-    color: #484f58;
-    font-size: 0.8rem;
-  }
-
-  .stock-detail {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 1.5rem;
-  }
-
-  .stock-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-
-  .stock-header h3 {
-    margin: 0;
-    color: #e1e4e8;
-  }
-
-  .exchange-badge {
-    color: #8b949e;
-    font-size: 0.85rem;
-  }
-
-  .price-row {
-    display: flex;
-    align-items: baseline;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .price {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #e1e4e8;
-  }
-
-  .change {
-    font-size: 1.1rem;
-    font-weight: 600;
-  }
-
-  .positive {
-    color: #3fb950;
-  }
-
-  .negative {
-    color: #f85149;
-  }
-
-  .details-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-  }
-
-  .detail .label {
-    display: block;
-    color: #8b949e;
-    font-size: 0.8rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .detail .value {
-    font-weight: 500;
-  }
+  .loading-text, .empty-text { color: #8b949e; text-align: center; padding: 2rem; }
+  .empty-text a { color: #58a6ff; }
 </style>
