@@ -162,6 +162,8 @@ func (c *YahooClient) GetBatchQuotes(ctx context.Context, tickers []string) ([]d
 			ChangePercent: r.RegularMarketChangePercent / 100.0,
 			Currency:      r.Currency,
 			Exchange:      r.FullExchangeName,
+			Sector:        r.Sector,
+			Industry:      r.Industry,
 			FetchedAt:     time.Now(),
 		})
 	}

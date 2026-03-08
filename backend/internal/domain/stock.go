@@ -27,6 +27,8 @@ type Quote struct {
 	ChangePercent float64   `json:"change_percent"`
 	Currency      string    `json:"currency"`
 	Exchange      string    `json:"exchange"`
+	Sector        string    `json:"sector,omitempty"`
+	Industry      string    `json:"industry,omitempty"`
 	FetchedAt     time.Time `json:"fetched_at"`
 }
 

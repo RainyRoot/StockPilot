@@ -39,6 +39,12 @@ type TradeRepo interface {
 	GetHoldings(ctx context.Context, portfolioID int64) ([]HoldingRow, error)
 }
 
+type AllocationRepo interface {
+	GetTargets(ctx context.Context, portfolioID int64) ([]domain.AllocationTarget, error)
+	SetTargets(ctx context.Context, portfolioID int64, targets []domain.AllocationTarget) error
+	DeleteTarget(ctx context.Context, id int64) error
+}
+
 // HoldingRow is the raw aggregation from the DB before enrichment with live prices.
 type HoldingRow struct {
 	StockID        int64

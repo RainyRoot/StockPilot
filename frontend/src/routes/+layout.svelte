@@ -14,6 +14,7 @@
       <li><a href="/watchlist">Watchlist</a></li>
       <li><a href="/portfolio">Portfolio</a></li>
       <li><a href="/valuation">Valuation</a></li>
+      <li><a href="/allocation">Allocation</a></li>
     </ul>
   </nav>
   <main class="content">
