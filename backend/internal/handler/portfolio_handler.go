@@ -26,6 +26,9 @@ func (h *PortfolioHandler) List(w http.ResponseWriter, r *http.Request) {
 		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
+	if portfolios == nil {
+		portfolios = []domain.Portfolio{}
+	}
 	httputil.JSON(w, http.StatusOK, portfolios)
 }
 
@@ -208,6 +211,9 @@ func (h *PortfolioHandler) ListTrades(w http.ResponseWriter, r *http.Request) {
 		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
+	if trades == nil {
+		trades = []domain.Trade{}
+	}
 	httputil.JSON(w, http.StatusOK, map[string]interface{}{
 		"trades": trades,
 		"total":  total,
@@ -227,6 +233,9 @@ func (h *PortfolioHandler) GetHoldings(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
+	}
+	if holdings == nil {
+		holdings = []domain.Holding{}
 	}
 	httputil.JSON(w, http.StatusOK, holdings)
 }

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rainyroot/stockpilot/backend/internal/domain"
 	"github.com/rainyroot/stockpilot/backend/internal/service"
 	"github.com/rainyroot/stockpilot/backend/pkg/httputil"
 )
@@ -23,6 +24,9 @@ func (h *WatchlistHandler) List(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
+	}
+	if watchlists == nil {
+		watchlists = []domain.Watchlist{}
 	}
 	httputil.JSON(w, http.StatusOK, watchlists)
 }

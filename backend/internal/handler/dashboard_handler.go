@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rainyroot/stockpilot/backend/internal/domain"
 	"github.com/rainyroot/stockpilot/backend/internal/service"
 	"github.com/rainyroot/stockpilot/backend/pkg/httputil"
 )
@@ -56,6 +57,9 @@ func (h *DashboardHandler) GetHoldingsPL(w http.ResponseWriter, r *http.Request)
 		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
+	if pl == nil {
+		pl = []domain.HoldingPL{}
+	}
 	httputil.JSON(w, http.StatusOK, pl)
 }
 
@@ -76,6 +80,9 @@ func (h *DashboardHandler) GetPerformance(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
+	}
+	if snapshots == nil {
+		snapshots = []domain.PortfolioSnapshot{}
 	}
 	httputil.JSON(w, http.StatusOK, snapshots)
 }
