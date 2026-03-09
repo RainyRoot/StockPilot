@@ -484,4 +484,8 @@
     text-align: center;
     padding: 2rem;
   }
+
+  @media (max-width: 768px) {
+    .stock-table { display: block; overflow-x: auto; }
+  }
 </style>

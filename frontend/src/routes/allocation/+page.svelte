@@ -641,4 +641,9 @@
     background: #da3633;
     color: #fff;
   }
+
+  @media (max-width: 768px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .data-table { display: block; overflow-x: auto; }
+  }
 </style>

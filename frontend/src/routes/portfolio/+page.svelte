@@ -557,4 +557,12 @@
   .btn-remove:hover { border-color: #f85149; color: #f85149; }
 
   .loading-text, .empty-text { color: #8b949e; text-align: center; padding: 2rem; }
+
+  @media (max-width: 768px) {
+    .form-row { flex-direction: column; }
+    .summary { flex-direction: column; gap: 1rem; }
+    .data-table { display: block; overflow-x: auto; }
+    .header { flex-direction: column; align-items: flex-start; }
+    .form-group input, .form-group select { width: 100%; }
+  }
 </style>

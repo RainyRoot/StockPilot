@@ -7,7 +7,7 @@ import (
 	"github.com/rainyroot/stockpilot/backend/pkg/httputil"
 )
 
-func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler *WatchlistHandler, portfolioHandler *PortfolioHandler, dashboardHandler *DashboardHandler, valuationHandler *ValuationHandler, allocationHandler *AllocationHandler) http.Handler {
+func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler *WatchlistHandler, portfolioHandler *PortfolioHandler, dashboardHandler *DashboardHandler, valuationHandler *ValuationHandler, allocationHandler *AllocationHandler, healthHandler *HealthHandler, settingsHandler *SettingsHandler, exportHandler *ExportHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(Logger)
@@ -48,6 +48,11 @@ func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler 
 		r.Get("/{id}/allocation/actual", allocationHandler.GetActual)
 		r.Get("/{id}/allocation/comparison", allocationHandler.GetComparison)
 		r.Get("/{id}/allocation/rebalance", allocationHandler.GetRebalance)
+		r.Get("/{id}/health", healthHandler.GetHealth)
+		r.Get("/{id}/health/alerts", healthHandler.GetAlerts)
+		r.Get("/{id}/health/top-picks", healthHandler.GetTopPicks)
+		r.Get("/{id}/export/holdings.csv", exportHandler.ExportHoldings)
+		r.Get("/{id}/export/trades.csv", exportHandler.ExportTrades)
 	})
 
 	r.Route("/api/v1/dashboard", func(r chi.Router) {
@@ -60,6 +65,11 @@ func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler 
 	r.Route("/api/v1/valuation", func(r chi.Router) {
 		r.Get("/{ticker}", valuationHandler.GetValuation)
 		r.Get("/{ticker}/fundamentals", valuationHandler.GetFundamentals)
+	})
+
+	r.Route("/api/v1/settings", func(r chi.Router) {
+		r.Get("/", settingsHandler.Get)
+		r.Put("/", settingsHandler.Update)
 	})
 
 	return r
