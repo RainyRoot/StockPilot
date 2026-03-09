@@ -40,4 +40,6 @@ type Fundamentals struct {
 	CashCents         int64   `json:"cash_cents"`
 	ROE               float64 `json:"roe"`
 	ProfitMargin      float64 `json:"profit_margin"`
+	// Historical net income (most recent first) for earnings growth calculation.
+	NetIncomeHistory []int64 `json:"net_income_history,omitempty"`
 }

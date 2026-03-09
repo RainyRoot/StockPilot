@@ -33,7 +33,7 @@ func main() {
 	watchlistService := service.NewWatchlistService(watchlistRepo, stockRepo, yahooClient, cfg.CacheTTLSecs)
 	portfolioService := service.NewPortfolioService(portfolioRepo, tradeRepo, stockRepo, yahooClient)
 	dashboardService := service.NewDashboardService(portfolioRepo, tradeRepo, stockRepo, yahooClient, portfolioService)
-	valuationService := service.NewValuationService(stockRepo, yahooClient)
+	valuationService := service.NewValuationService(stockRepo, watchlistRepo, yahooClient, settingsRepo)
 	allocationService := service.NewAllocationService(allocationRepo, portfolioRepo, tradeRepo, stockRepo, yahooClient)
 	settingsService := service.NewSettingsService(settingsRepo)
 	healthService := service.NewHealthService(portfolioRepo, tradeRepo, stockRepo, allocationRepo, watchlistRepo, yahooClient, valuationService, allocationService, portfolioService)

@@ -42,3 +42,7 @@ export async function getValuation(ticker: string): Promise<ValuationResult> {
 export async function getFundamentals(ticker: string): Promise<Fundamentals> {
   return api<Fundamentals>(`/valuation/${encodeURIComponent(ticker)}/fundamentals`);
 }
+
+export async function screenWatchlist(watchlistId: number): Promise<ValuationResult[]> {
+  return api<ValuationResult[]>(`/watchlists/${watchlistId}/screen`);
+}

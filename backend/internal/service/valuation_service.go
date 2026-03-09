@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"sort"
 
 	"github.com/rainyroot/stockpilot/backend/internal/domain"
 	"github.com/rainyroot/stockpilot/backend/internal/repository"
@@ -10,17 +12,42 @@ import (
 )
 
 type ValuationService struct {
-	stockRepo repository.StockRepo
-	provider  scraper.DataProvider
+	stockRepo     repository.StockRepo
+	watchlistRepo repository.WatchlistRepo
+	provider      scraper.DataProvider
+	settingsRepo  settingsGetter
+}
+
+// settingsGetter is a minimal interface to avoid depending on the concrete SettingsRepo.
+type settingsGetter interface {
+	Get(ctx context.Context) (*domain.UserSettings, error)
 }
 
 func NewValuationService(
 	stockRepo repository.StockRepo,
+	watchlistRepo repository.WatchlistRepo,
 	provider scraper.DataProvider,
+	settingsRepo settingsGetter,
 ) *ValuationService {
 	return &ValuationService{
-		stockRepo: stockRepo,
-		provider:  provider,
+		stockRepo:     stockRepo,
+		watchlistRepo: watchlistRepo,
+		provider:      provider,
+		settingsRepo:  settingsRepo,
+	}
+}
+
+// loadSettings returns user settings, falling back to defaults on error.
+func (s *ValuationService) loadSettings(ctx context.Context) *domain.UserSettings {
+	if s.settingsRepo != nil {
+		if settings, err := s.settingsRepo.Get(ctx); err == nil {
+			return settings
+		}
+	}
+	return &domain.UserSettings{
+		DiscountRate:   0.10,
+		GrowthRate:     0.05,
+		TerminalGrowth: 0.025,
 	}
 }
 
@@ -36,9 +63,10 @@ func (s *ValuationService) GetValuation(ctx context.Context, ticker string) (*do
 		return nil, err
 	}
 
+	settings := s.loadSettings(ctx)
 	methods := []domain.MethodResult{}
 
-	if dcf := s.calcDCF(fundamentals); dcf != nil {
+	if dcf := s.calcDCF(fundamentals, settings); dcf != nil {
 		methods = append(methods, *dcf)
 	}
 	if graham := s.calcGrahamNumber(fundamentals); graham != nil {
@@ -47,7 +75,7 @@ func (s *ValuationService) GetValuation(ctx context.Context, ticker string) (*do
 	if peg := s.calcPEGValuation(fundamentals, quote); peg != nil {
 		methods = append(methods, *peg)
 	}
-	if owner := s.calcOwnerEarnings(fundamentals); owner != nil {
+	if owner := s.calcOwnerEarnings(fundamentals, settings); owner != nil {
 		methods = append(methods, *owner)
 	}
 
@@ -87,15 +115,15 @@ func (s *ValuationService) GetFundamentals(ctx context.Context, ticker string) (
 }
 
 // calcDCF — Discounted Cash Flow (10-year projection)
-func (s *ValuationService) calcDCF(f *domain.Fundamentals) *domain.MethodResult {
+func (s *ValuationService) calcDCF(f *domain.Fundamentals, settings *domain.UserSettings) *domain.MethodResult {
 	if f.FreeCashFlowCents <= 0 || f.SharesOutstanding <= 0 {
 		return nil
 	}
 
 	fcfPerShare := float64(f.FreeCashFlowCents) / float64(f.SharesOutstanding)
-	discountRate := 0.10
-	growthRate := 0.05
-	terminalGrowth := 0.025
+	discountRate := settings.DiscountRate
+	growthRate := settings.GrowthRate
+	terminalGrowth := settings.TerminalGrowth
 
 	var pvSum float64
 	currentFCF := fcfPerShare
@@ -116,7 +144,7 @@ func (s *ValuationService) calcDCF(f *domain.Fundamentals) *domain.MethodResult 
 		Name:        "DCF (Discounted Cash Flow)",
 		ValueCents:  intrinsicCents,
 		Weight:      0.35,
-		Description: "10-year FCF projection with 5% growth, 10% discount rate, 2.5% terminal growth",
+		Description: fmt.Sprintf("10-year FCF projection with %.1f%% growth, %.1f%% discount rate, %.1f%% terminal growth", growthRate*100, discountRate*100, terminalGrowth*100),
 	}
 }
 
@@ -146,13 +174,7 @@ func (s *ValuationService) calcPEGValuation(f *domain.Fundamentals, q *domain.Qu
 		return nil
 	}
 
-	growthRate := f.ROE * 100
-	if growthRate <= 0 {
-		growthRate = 5.0
-	}
-	if growthRate > 30 {
-		growthRate = 30.0
-	}
+	growthRate := s.calcEarningsGrowth(f)
 
 	eps := float64(f.EPSCents) / 100.0
 	fairPE := growthRate
@@ -163,12 +185,45 @@ func (s *ValuationService) calcPEGValuation(f *domain.Fundamentals, q *domain.Qu
 		Name:        "PEG Ratio Fair Value",
 		ValueCents:  fairCents,
 		Weight:      0.15,
-		Description: "Fair value assuming PEG ratio of 1.0 with estimated earnings growth",
+		Description: fmt.Sprintf("PEG=1.0 with %.1f%% earnings growth (historical CAGR)", growthRate),
 	}
 }
 
+// calcEarningsGrowth computes annualized earnings growth from historical net income.
+// Falls back to ROE-based estimate if insufficient history.
+func (s *ValuationService) calcEarningsGrowth(f *domain.Fundamentals) float64 {
+	// Need at least 2 years of positive data for CAGR
+	if len(f.NetIncomeHistory) >= 2 {
+		newest := f.NetIncomeHistory[0]
+		oldest := f.NetIncomeHistory[len(f.NetIncomeHistory)-1]
+		years := float64(len(f.NetIncomeHistory) - 1)
+
+		if oldest > 0 && newest > 0 && years > 0 {
+			cagr := math.Pow(float64(newest)/float64(oldest), 1.0/years) - 1.0
+			growthPct := cagr * 100
+			if growthPct < 5 {
+				growthPct = 5.0
+			}
+			if growthPct > 30 {
+				growthPct = 30.0
+			}
+			return growthPct
+		}
+	}
+
+	// Fallback: ROE-based estimate
+	growthRate := f.ROE * 100
+	if growthRate <= 0 {
+		growthRate = 5.0
+	}
+	if growthRate > 30 {
+		growthRate = 30.0
+	}
+	return growthRate
+}
+
 // calcOwnerEarnings — Buffett's Owner Earnings method
-func (s *ValuationService) calcOwnerEarnings(f *domain.Fundamentals) *domain.MethodResult {
+func (s *ValuationService) calcOwnerEarnings(f *domain.Fundamentals, settings *domain.UserSettings) *domain.MethodResult {
 	if f.NetIncomeCents <= 0 || f.SharesOutstanding <= 0 {
 		return nil
 	}
@@ -180,14 +235,15 @@ func (s *ValuationService) calcOwnerEarnings(f *domain.Fundamentals) *domain.Met
 		ownerEarnings = float64(f.NetIncomeCents) / float64(f.SharesOutstanding) * 0.8
 	}
 
-	intrinsicPerShare := ownerEarnings * 10.0
+	requiredReturn := settings.DiscountRate
+	intrinsicPerShare := ownerEarnings / requiredReturn
 	intrinsicCents := int64(math.Round(intrinsicPerShare))
 
 	return &domain.MethodResult{
 		Name:        "Owner Earnings (Buffett)",
 		ValueCents:  intrinsicCents,
 		Weight:      0.25,
-		Description: "Owner earnings capitalized at 10% required return",
+		Description: fmt.Sprintf("Owner earnings capitalized at %.1f%% required return", requiredReturn*100),
 	}
 }
 
@@ -256,4 +312,36 @@ func (s *ValuationService) determineVerdict(marginOfSafety float64, qualityScore
 		return domain.VerdictFair
 	}
 	return domain.VerdictOvervalued
+}
+
+// ScreenWatchlist runs valuation on all stocks in a watchlist and returns
+// results sorted by margin of safety (best opportunities first).
+func (s *ValuationService) ScreenWatchlist(ctx context.Context, watchlistID int64) ([]domain.ValuationResult, error) {
+	items, err := s.watchlistRepo.GetItems(ctx, watchlistID)
+	if err != nil {
+		return nil, fmt.Errorf("get watchlist items: %w", err)
+	}
+
+	var results []domain.ValuationResult
+	for _, item := range items {
+		if item.Stock == nil {
+			continue
+		}
+		val, err := s.GetValuation(ctx, item.Stock.Ticker)
+		if err != nil {
+			// Skip stocks that fail (e.g. missing fundamentals)
+			continue
+		}
+		results = append(results, *val)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].MarginOfSafety > results[j].MarginOfSafety
+	})
+
+	if results == nil {
+		results = []domain.ValuationResult{}
+	}
+
+	return results, nil
 }

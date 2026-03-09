@@ -31,6 +31,7 @@ func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler 
 		r.Delete("/{id}", watchlistHandler.Delete)
 		r.Post("/{id}/stocks", watchlistHandler.AddStock)
 		r.Delete("/{id}/stocks", watchlistHandler.RemoveStock)
+		r.Get("/{id}/screen", valuationHandler.ScreenWatchlist)
 	})
 
 	r.Route("/api/v1/portfolios", func(r chi.Router) {

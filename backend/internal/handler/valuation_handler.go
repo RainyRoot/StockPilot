@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rainyroot/stockpilot/backend/internal/service"
@@ -44,4 +45,19 @@ func (h *ValuationHandler) GetFundamentals(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	httputil.JSON(w, http.StatusOK, fundamentals)
+}
+
+func (h *ValuationHandler) ScreenWatchlist(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		httputil.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid watchlist id")
+		return
+	}
+
+	results, err := h.valuationService.ScreenWatchlist(r.Context(), id)
+	if err != nil {
+		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	httputil.JSON(w, http.StatusOK, results)
 }

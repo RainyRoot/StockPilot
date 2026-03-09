@@ -9,6 +9,7 @@
     type Watchlist,
   } from '$lib/api/watchlists';
   import { searchStocks, type StockSearchResult } from '$lib/api/stocks';
+  import { screenWatchlist, type ValuationResult } from '$lib/api/valuation';
   import { formatCents, formatPercent, formatVolume } from '$lib/utils/format';
 
   let watchlists = $state<Watchlist[]>([]);
@@ -25,6 +26,44 @@
   // New watchlist
   let newWatchlistName = $state('');
   let showNewForm = $state(false);
+
+  // Screening
+  let screenResults = $state<ValuationResult[]>([]);
+  let screening = $state(false);
+  let showScreening = $state(false);
+
+  async function handleScreen() {
+    if (!activeWatchlist) return;
+    try {
+      screening = true;
+      showScreening = true;
+      screenResults = await screenWatchlist(activeWatchlist.id);
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Screening failed';
+    } finally {
+      screening = false;
+    }
+  }
+
+  function verdictColor(verdict: string): string {
+    switch (verdict) {
+      case 'UNDERVALUED': return 'verdict-under';
+      case 'FAIRLY_VALUED_LOW': return 'verdict-fair-low';
+      case 'FAIR_VALUE': return 'verdict-fair';
+      case 'OVERVALUED': return 'verdict-over';
+      default: return '';
+    }
+  }
+
+  function verdictLabel(verdict: string): string {
+    switch (verdict) {
+      case 'UNDERVALUED': return 'Undervalued';
+      case 'FAIRLY_VALUED_LOW': return 'Fair (Low)';
+      case 'FAIR_VALUE': return 'Fair Value';
+      case 'OVERVALUED': return 'Overvalued';
+      default: return verdict;
+    }
+  }
 
   // Sort
   type SortKey = 'ticker' | 'name' | 'price' | 'change' | 'volume';
@@ -173,6 +212,11 @@
 <div class="watchlist-page">
   <div class="header">
     <h2>Watchlist</h2>
+    {#if activeWatchlist && activeWatchlist.items && activeWatchlist.items.length > 0}
+      <button class="btn-screen" onclick={handleScreen} disabled={screening}>
+        {screening ? 'Scanning...' : 'Screen Watchlist'}
+      </button>
+    {/if}
     <button class="btn-add" onclick={() => { showAddSearch = !showAddSearch; showNewForm = false; }}>
       + Add Stock
     </button>
@@ -232,6 +276,52 @@
             </button>
           {/each}
         </div>
+      {/if}
+    </div>
+  {/if}
+
+  <!-- Screening Results -->
+  {#if showScreening}
+    <div class="screen-panel">
+      <div class="screen-header">
+        <h3>Screening Results</h3>
+        <button class="btn-close" onclick={() => { showScreening = false; }}>Close</button>
+      </div>
+      {#if screening}
+        <p class="loading-text">Analyzing stocks... This may take a moment.</p>
+      {:else if screenResults.length > 0}
+        <table class="stock-table screen-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th class="num">Price</th>
+              <th class="num">Intrinsic</th>
+              <th class="num">Margin</th>
+              <th class="num">Quality</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each screenResults as r}
+              <tr>
+                <td class="ticker-cell">{r.ticker}</td>
+                <td class="num">{formatCents(r.current_price_cents, 'USD')}</td>
+                <td class="num">{formatCents(r.intrinsic_value_cents, 'USD')}</td>
+                <td class="num">
+                  <span class:positive={r.margin_of_safety > 0} class:negative={r.margin_of_safety < 0}>
+                    {formatPercent(r.margin_of_safety)}
+                  </span>
+                </td>
+                <td class="num">{r.quality_score}/100</td>
+                <td>
+                  <span class="verdict-badge {verdictColor(r.verdict)}">{verdictLabel(r.verdict)}</span>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {:else}
+        <p class="empty-text">No valuation data available for watchlist stocks.</p>
       {/if}
     </div>
   {/if}
@@ -478,6 +568,56 @@
     border-color: #f85149;
     color: #f85149;
   }
+
+  .btn-screen {
+    padding: 0.5rem 1rem;
+    background: #1f6feb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .btn-screen:hover { background: #388bfd; }
+  .btn-screen:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .screen-panel {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .screen-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .screen-header h3 { margin: 0; font-size: 1rem; }
+  .btn-close {
+    padding: 0.3rem 0.75rem;
+    background: #30363d;
+    color: #e1e4e8;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .btn-close:hover { background: #484f58; }
+
+  .screen-table { margin: 0; }
+
+  .verdict-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+  }
+  .verdict-under { background: #0d3321; color: #3fb950; }
+  .verdict-fair-low { background: #0c2d6b; color: #58a6ff; }
+  .verdict-fair { background: #3d2e00; color: #d29922; }
+  .verdict-over { background: #3d1f1f; color: #f85149; }
 
   .loading-text, .empty-text {
     color: #8b949e;

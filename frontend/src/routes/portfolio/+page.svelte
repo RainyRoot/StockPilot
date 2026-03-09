@@ -36,7 +36,7 @@
   let tradeSearchTimeout: ReturnType<typeof setTimeout>;
   let selectedTicker = $state('');
   let tradeType = $state<'BUY' | 'SELL'>('BUY');
-  let tradeQuantity = $state('');
+  let tradeAmount = $state('');
   let tradePrice = $state('');
   let tradeFee = $state('1.00');
   let tradeCurrency = $state('USD');
@@ -142,15 +142,23 @@
     tradeResults = [];
   }
 
+  let computedQuantity = $derived(() => {
+    const amount = parseFloat(tradeAmount);
+    const price = parseFloat(tradePrice);
+    if (isNaN(amount) || amount <= 0 || isNaN(price) || price <= 0) return 0;
+    return amount / price;
+  });
+
   async function handleSubmitTrade() {
     if (!activePortfolio || !selectedTicker) return;
-    const qty = parseFloat(tradeQuantity);
+    const amount = parseFloat(tradeAmount);
     const price = parseFloat(tradePrice);
     const fee = parseFloat(tradeFee);
-    if (isNaN(qty) || qty <= 0 || isNaN(price) || price <= 0) {
-      error = 'Quantity and price must be positive numbers';
+    if (isNaN(amount) || amount <= 0 || isNaN(price) || price <= 0) {
+      error = 'Amount and price per share must be positive numbers';
       return;
     }
+    const qty = amount / price;
     try {
       const executedAt = new Date(tradeDate).toISOString();
       await addTrade(
@@ -168,7 +176,7 @@
       showTradeForm = false;
       selectedTicker = '';
       tradeQuery = '';
-      tradeQuantity = '';
+      tradeAmount = '';
       tradePrice = '';
       tradeFee = '1.00';
       tradeNotes = '';
@@ -278,13 +286,19 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label for="trade-qty">Quantity</label>
-          <input id="trade-qty" type="number" step="0.01" placeholder="10" bind:value={tradeQuantity} />
-        </div>
-        <div class="form-group">
           <label for="trade-price">Price per share</label>
           <input id="trade-price" type="number" step="0.01" placeholder="175.00" bind:value={tradePrice} />
         </div>
+        <div class="form-group">
+          <label for="trade-amount">Amount ({tradeCurrency})</label>
+          <input id="trade-amount" type="number" step="0.01" placeholder="200.00" bind:value={tradeAmount} />
+        </div>
+        {#if computedQuantity() > 0}
+          <div class="form-group computed-qty">
+            <label>Shares</label>
+            <span class="computed-value">{computedQuantity().toFixed(6)}</span>
+          </div>
+        {/if}
         <div class="form-group">
           <label for="trade-fee">Fee</label>
           <input id="trade-fee" type="number" step="0.01" placeholder="1.00" bind:value={tradeFee} />
@@ -364,7 +378,7 @@
               <tr>
                 <td class="ticker-cell">{h.stock.ticker}</td>
                 <td class="name-cell">{h.stock.name}</td>
-                <td class="num">{h.quantity}</td>
+                <td class="num">{h.quantity.toFixed(4)}</td>
                 <td class="num">{formatCents(h.avg_cost_cents, activePortfolio.currency)}</td>
                 <td class="num">{formatCents(h.current_price_cents, activePortfolio.currency)}</td>
                 <td class="num">{formatCents(h.market_value_cents, activePortfolio.currency)}</td>
@@ -406,7 +420,7 @@
                   </span>
                 </td>
                 <td class="ticker-cell">{t.ticker}</td>
-                <td class="num">{t.quantity}</td>
+                <td class="num">{t.quantity.toFixed(4)}</td>
                 <td class="num">{formatCents(t.price_cents, t.currency)}</td>
                 <td class="num">{formatCents(t.fee_cents, t.currency)}</td>
                 <td class="num">{formatCents(Math.round(t.quantity * t.price_cents) + t.fee_cents, t.currency)}</td>
@@ -555,6 +569,12 @@
     color: #8b949e; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
   }
   .btn-remove:hover { border-color: #f85149; color: #f85149; }
+
+  .computed-qty { justify-content: center; }
+  .computed-value {
+    font-size: 0.95rem; font-weight: 600; color: #58a6ff;
+    padding: 0.5rem 0; line-height: 1.4;
+  }
 
   .loading-text, .empty-text { color: #8b949e; text-align: center; padding: 2rem; }
 

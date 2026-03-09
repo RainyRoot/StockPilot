@@ -309,6 +309,12 @@ func (c *YahooClient) GetFundamentals(ctx context.Context, ticker string) (*doma
 		fcf = cf.TotalCashFromOperatingActivities.Raw + cf.CapitalExpenditures.Raw // capex is negative
 	}
 
+	// Extract historical net income (most recent first) for earnings growth
+	var netIncomeHistory []int64
+	for _, stmt := range r.IncomeStatementHistory.IncomeStatementHistory {
+		netIncomeHistory = append(netIncomeHistory, money.FloatToCents(stmt.NetIncome.Raw))
+	}
+
 	return &domain.Fundamentals{
 		FiscalYear:        time.Now().Year(),
 		RevenueCents:      money.FloatToCents(fd.TotalRevenue.Raw),
@@ -321,6 +327,7 @@ func (c *YahooClient) GetFundamentals(ctx context.Context, ticker string) (*doma
 		CashCents:         money.FloatToCents(fd.TotalCash.Raw),
 		ROE:               fd.ReturnOnEquity.Raw,
 		ProfitMargin:      fd.ProfitMargins.Raw,
+		NetIncomeHistory:  netIncomeHistory,
 	}, nil
 }
 
