@@ -2,13 +2,22 @@ package domain
 
 import "time"
 
+type PortfolioStrategy string
+
+const (
+	StrategyValue   PortfolioStrategy = "VALUE"
+	StrategyTrading PortfolioStrategy = "TRADING"
+	StrategyIndex   PortfolioStrategy = "INDEX"
+)
+
 type Portfolio struct {
-	ID          int64     `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description,omitempty"`
-	Currency    string    `json:"currency"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          int64             `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	Currency    string            `json:"currency"`
+	Strategy    PortfolioStrategy `json:"strategy"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
 }
 
 type Holding struct {

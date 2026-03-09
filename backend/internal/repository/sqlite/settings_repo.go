@@ -38,6 +38,7 @@ func (r *SettingsRepo) Get(ctx context.Context) (*domain.UserSettings, error) {
 		DiscountRate:   0.10,
 		GrowthRate:     0.05,
 		TerminalGrowth: 0.025,
+		MaxPositionPct: 10.0,
 		Theme:          "dark",
 	}
 
@@ -57,6 +58,11 @@ func (r *SettingsRepo) Get(ctx context.Context) (*domain.UserSettings, error) {
 	if v, ok := kv["terminal_growth"]; ok {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			settings.TerminalGrowth = f
+		}
+	}
+	if v, ok := kv["max_position_pct"]; ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			settings.MaxPositionPct = f
 		}
 	}
 	if v, ok := kv["theme"]; ok {
@@ -80,11 +86,12 @@ func (r *SettingsRepo) Update(ctx context.Context, settings *domain.UserSettings
 	defer stmt.Close()
 
 	pairs := map[string]string{
-		"currency":        settings.Currency,
-		"discount_rate":   strconv.FormatFloat(settings.DiscountRate, 'f', -1, 64),
-		"growth_rate":     strconv.FormatFloat(settings.GrowthRate, 'f', -1, 64),
-		"terminal_growth": strconv.FormatFloat(settings.TerminalGrowth, 'f', -1, 64),
-		"theme":           settings.Theme,
+		"currency":         settings.Currency,
+		"discount_rate":    strconv.FormatFloat(settings.DiscountRate, 'f', -1, 64),
+		"growth_rate":      strconv.FormatFloat(settings.GrowthRate, 'f', -1, 64),
+		"terminal_growth":  strconv.FormatFloat(settings.TerminalGrowth, 'f', -1, 64),
+		"max_position_pct": strconv.FormatFloat(settings.MaxPositionPct, 'f', -1, 64),
+		"theme":            settings.Theme,
 	}
 
 	for k, v := range pairs {

@@ -9,6 +9,7 @@
     listTrades,
     getHoldings,
     type Portfolio,
+    type PortfolioStrategy,
     type Trade,
     type Holding,
   } from '$lib/api/portfolios';
@@ -28,6 +29,7 @@
   let showNewForm = $state(false);
   let newName = $state('');
   let newCurrency = $state('EUR');
+  let newStrategy = $state<PortfolioStrategy>('VALUE');
 
   // New trade form
   let showTradeForm = $state(false);
@@ -94,7 +96,7 @@
   async function handleCreatePortfolio() {
     if (!newName.trim()) return;
     try {
-      const p = await createPortfolio(newName.trim(), '', newCurrency);
+      const p = await createPortfolio(newName.trim(), '', newCurrency, newStrategy);
       portfolios = [...portfolios, p];
       newName = '';
       showNewForm = false;
@@ -234,7 +236,7 @@
           class:active={activePortfolio?.id === p.id}
           onclick={() => selectPortfolio(p.id)}
         >
-          {p.name} ({p.currency})
+          {p.name} ({p.strategy || 'VALUE'})
           <span class="tab-delete" role="button" tabindex="0" onclick={(e) => { e.stopPropagation(); handleDeletePortfolio(p.id); }} onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleDeletePortfolio(p.id); } }}>×</span>
         </button>
       {/each}
@@ -250,6 +252,11 @@
         <select bind:value={newCurrency}>
           <option value="EUR">EUR</option>
           <option value="USD">USD</option>
+        </select>
+        <select bind:value={newStrategy}>
+          <option value="VALUE">Value</option>
+          <option value="TRADING">Trading</option>
+          <option value="INDEX">Index/ETF</option>
         </select>
         <button onclick={handleCreatePortfolio}>Create</button>
       </div>

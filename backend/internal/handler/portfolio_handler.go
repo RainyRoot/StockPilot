@@ -51,6 +51,7 @@ type createPortfolioRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Currency    string `json:"currency"`
+	Strategy    string `json:"strategy"`
 }
 
 func (h *PortfolioHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +61,7 @@ func (h *PortfolioHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	portfolio, err := h.portfolioService.Create(r.Context(), req.Name, req.Description, req.Currency)
+	portfolio, err := h.portfolioService.Create(r.Context(), req.Name, req.Description, req.Currency, req.Strategy)
 	if err != nil {
 		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return

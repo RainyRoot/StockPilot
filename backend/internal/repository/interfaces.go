@@ -27,7 +27,7 @@ type WatchlistRepo interface {
 type PortfolioRepo interface {
 	List(ctx context.Context) ([]domain.Portfolio, error)
 	GetByID(ctx context.Context, id int64) (*domain.Portfolio, error)
-	Create(ctx context.Context, name string, description string, currency string) (*domain.Portfolio, error)
+	Create(ctx context.Context, name string, description string, currency string, strategy string) (*domain.Portfolio, error)
 	Update(ctx context.Context, id int64, name string, description string) error
 	Delete(ctx context.Context, id int64) error
 }

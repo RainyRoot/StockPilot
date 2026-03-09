@@ -33,5 +33,8 @@ func (s *SettingsService) Update(ctx context.Context, settings *domain.UserSetti
 	if settings.TerminalGrowth < 0.0 || settings.TerminalGrowth > 0.10 {
 		return fmt.Errorf("terminal_growth must be between 0.0 and 0.10")
 	}
+	if settings.MaxPositionPct < 1.0 || settings.MaxPositionPct > 100.0 {
+		return fmt.Errorf("max_position_pct must be between 1 and 100")
+	}
 	return s.repo.Update(ctx, settings)
 }

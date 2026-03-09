@@ -47,14 +47,17 @@ func (s *PortfolioService) Get(ctx context.Context, id int64) (*domain.Portfolio
 	return p, nil
 }
 
-func (s *PortfolioService) Create(ctx context.Context, name string, description string, currency string) (*domain.Portfolio, error) {
+func (s *PortfolioService) Create(ctx context.Context, name string, description string, currency string, strategy string) (*domain.Portfolio, error) {
 	if name == "" {
 		name = "My Portfolio"
 	}
 	if currency == "" {
 		currency = "EUR"
 	}
-	return s.portfolioRepo.Create(ctx, name, description, currency)
+	if strategy == "" {
+		strategy = "VALUE"
+	}
+	return s.portfolioRepo.Create(ctx, name, description, currency, strategy)
 }
 
 func (s *PortfolioService) Update(ctx context.Context, id int64, name string, description string) error {

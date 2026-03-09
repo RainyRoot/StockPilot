@@ -21,6 +21,7 @@ type HealthService struct {
 	valuationService  *ValuationService
 	allocationService *AllocationService
 	portfolioService  *PortfolioService
+	settingsRepo      settingsGetter
 }
 
 func NewHealthService(
@@ -33,6 +34,7 @@ func NewHealthService(
 	valuationService *ValuationService,
 	allocationService *AllocationService,
 	portfolioService *PortfolioService,
+	settingsRepo settingsGetter,
 ) *HealthService {
 	return &HealthService{
 		portfolioRepo:     portfolioRepo,
@@ -44,7 +46,17 @@ func NewHealthService(
 		valuationService:  valuationService,
 		allocationService: allocationService,
 		portfolioService:  portfolioService,
+		settingsRepo:      settingsRepo,
 	}
+}
+
+func (s *HealthService) loadMaxPositionPct(ctx context.Context) float64 {
+	if s.settingsRepo != nil {
+		if settings, err := s.settingsRepo.Get(ctx); err == nil && settings.MaxPositionPct > 0 {
+			return settings.MaxPositionPct
+		}
+	}
+	return 10.0
 }
 
 func (s *HealthService) GetHealthScore(ctx context.Context, portfolioID int64) (*domain.HealthScore, error) {
@@ -102,7 +114,7 @@ func (s *HealthService) calcComponents(ctx context.Context, portfolioID int64, h
 		s.calcDiversification(holdings),
 		s.calcValuationQuality(ctx, holdings),
 		s.calcAllocationAdherence(ctx, portfolioID, holdings),
-		s.calcRiskBalance(holdings),
+		s.calcRiskBalance(ctx, holdings),
 	}
 	return components
 }
@@ -239,7 +251,7 @@ func (s *HealthService) calcAllocationAdherence(ctx context.Context, portfolioID
 }
 
 // calcRiskBalance scores based on position concentration and overall P&L.
-func (s *HealthService) calcRiskBalance(holdings []domain.Holding) domain.HealthComponent {
+func (s *HealthService) calcRiskBalance(ctx context.Context, holdings []domain.Holding) domain.HealthComponent {
 	if len(holdings) == 0 {
 		return domain.HealthComponent{
 			Name:        "Risk Balance",
@@ -258,15 +270,16 @@ func (s *HealthService) calcRiskBalance(holdings []domain.Holding) domain.Health
 
 	score := 100
 
-	// Penalize concentration
+	// Penalize concentration based on user-configured max position size
+	maxPct := s.loadMaxPositionPct(ctx)
 	for _, h := range holdings {
 		if totalValue == 0 {
 			break
 		}
 		pct := float64(h.MarketValue) / float64(totalValue) * 100
-		if pct > 40 {
+		if pct > maxPct*2 {
 			score -= 30
-		} else if pct > 30 {
+		} else if pct > maxPct {
 			score -= 15
 		}
 	}
@@ -300,15 +313,23 @@ func (s *HealthService) getAlerts(ctx context.Context, portfolioID int64, holdin
 		totalValue += h.MarketValue
 	}
 
+	maxPct := s.loadMaxPositionPct(ctx)
 	for _, h := range holdings {
-		// Critical: single position > 40%
+		// Concentration alerts based on user-configured max position size
 		if totalValue > 0 {
 			pct := float64(h.MarketValue) / float64(totalValue) * 100
-			if pct > 40 {
+			if pct > maxPct*2 {
 				alerts = append(alerts, domain.HealthAlert{
 					Severity: "critical",
 					Title:    "Extreme concentration",
-					Message:  fmt.Sprintf("%s makes up %.1f%% of your portfolio", h.Stock.Ticker, pct),
+					Message:  fmt.Sprintf("%s makes up %.1f%% of your portfolio (max: %.0f%%)", h.Stock.Ticker, pct, maxPct),
+					Ticker:   h.Stock.Ticker,
+				})
+			} else if pct > maxPct {
+				alerts = append(alerts, domain.HealthAlert{
+					Severity: "warning",
+					Title:    "Position too large",
+					Message:  fmt.Sprintf("%s makes up %.1f%% of your portfolio (max: %.0f%%)", h.Stock.Ticker, pct, maxPct),
 					Ticker:   h.Stock.Ticker,
 				})
 			}

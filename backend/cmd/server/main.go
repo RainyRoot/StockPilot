@@ -36,7 +36,7 @@ func main() {
 	valuationService := service.NewValuationService(stockRepo, watchlistRepo, yahooClient, settingsRepo)
 	allocationService := service.NewAllocationService(allocationRepo, portfolioRepo, tradeRepo, stockRepo, yahooClient)
 	settingsService := service.NewSettingsService(settingsRepo)
-	healthService := service.NewHealthService(portfolioRepo, tradeRepo, stockRepo, allocationRepo, watchlistRepo, yahooClient, valuationService, allocationService, portfolioService)
+	healthService := service.NewHealthService(portfolioRepo, tradeRepo, stockRepo, allocationRepo, watchlistRepo, yahooClient, valuationService, allocationService, portfolioService, settingsRepo)
 	exportService := service.NewExportService(portfolioService, tradeRepo)
 
 	stockHandler := handler.NewStockHandler(stockService)

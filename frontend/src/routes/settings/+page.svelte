@@ -17,6 +17,7 @@
   let discountRate = $state(10);
   let growthRate = $state(5);
   let terminalGrowth = $state(2.5);
+  let maxPositionPct = $state(10);
 
   async function load() {
     try {
@@ -28,6 +29,7 @@
       discountRate = s.discount_rate * 100;
       growthRate = s.growth_rate * 100;
       terminalGrowth = s.terminal_growth * 100;
+      maxPositionPct = s.max_position_pct || 10;
       if (p.length > 0) exportPortfolioId = p[0].id;
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load settings';
@@ -44,6 +46,7 @@
         discount_rate: discountRate / 100,
         growth_rate: growthRate / 100,
         terminal_growth: terminalGrowth / 100,
+        max_position_pct: maxPositionPct,
         theme: 'dark',
       });
       toast('success', 'Settings saved successfully');
@@ -119,6 +122,16 @@
           <label for="terminal">Terminal Growth Rate (%)</label>
           <input id="terminal" type="number" min="0" max="10" step="0.25" bind:value={terminalGrowth} />
           <span class="hint">Long-term growth rate (0-10%)</span>
+        </div>
+      </section>
+
+      <!-- Risk Management -->
+      <section class="settings-section">
+        <h3>Risk Management</h3>
+        <div class="field">
+          <label for="max-position">Max Position Size (%)</label>
+          <input id="max-position" type="number" min="1" max="100" step="1" bind:value={maxPositionPct} />
+          <span class="hint">Alert when a single stock exceeds this % of portfolio (1-100%)</span>
         </div>
       </section>
 

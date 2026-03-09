@@ -5,6 +5,7 @@ export interface UserSettings {
   discount_rate: number;
   growth_rate: number;
   terminal_growth: number;
+  max_position_pct: number;
   theme: string;
 }
 

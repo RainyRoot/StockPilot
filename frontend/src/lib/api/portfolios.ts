@@ -1,11 +1,14 @@
 import { api } from './client';
 import type { Stock } from './stocks';
 
+export type PortfolioStrategy = 'VALUE' | 'TRADING' | 'INDEX';
+
 export interface Portfolio {
   id: number;
   name: string;
   description?: string;
   currency: string;
+  strategy: PortfolioStrategy;
   created_at: string;
   updated_at: string;
 }
@@ -51,10 +54,10 @@ export async function getPortfolio(id: number): Promise<Portfolio> {
   return api<Portfolio>(`/portfolios/${id}`);
 }
 
-export async function createPortfolio(name: string, description: string = '', currency: string = 'EUR'): Promise<Portfolio> {
+export async function createPortfolio(name: string, description: string = '', currency: string = 'EUR', strategy: PortfolioStrategy = 'VALUE'): Promise<Portfolio> {
   return api<Portfolio>('/portfolios', {
     method: 'POST',
-    body: JSON.stringify({ name, description, currency }),
+    body: JSON.stringify({ name, description, currency, strategy }),
   });
 }
 
