@@ -1,6 +1,6 @@
 <script lang="ts">
   import { searchStocks, type StockSearchResult } from '$lib/api/stocks';
-  import { getValuation, getFundamentals, type ValuationResult, type Fundamentals } from '$lib/api/valuation';
+  import { getValuation, getFundamentals, backtestValuation, type ValuationResult, type Fundamentals, type BacktestResult } from '$lib/api/valuation';
   import { formatCents, formatPercent } from '$lib/utils/format';
 
   let query = $state('');
@@ -10,6 +10,11 @@
   let loading = $state(false);
   let error = $state('');
   let searchTimeout: ReturnType<typeof setTimeout>;
+
+  let backtestDate = $state('');
+  let backtestResult = $state<BacktestResult | null>(null);
+  let backtesting = $state(false);
+  let backtestError = $state('');
 
   function handleSearch() {
     clearTimeout(searchTimeout);
@@ -29,6 +34,9 @@
       ]);
       valuation = val;
       fundamentals = fund;
+      backtestResult = null;
+      backtestError = '';
+      backtestDate = '';
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load valuation';
       valuation = null;
@@ -62,6 +70,20 @@
     if (score >= 70) return '#3fb950';
     if (score >= 50) return '#d29922';
     return '#f85149';
+  }
+
+  async function runBacktest() {
+    if (!query || !backtestDate) return;
+    try {
+      backtesting = true;
+      backtestError = '';
+      backtestResult = await backtestValuation(query.toUpperCase(), backtestDate);
+    } catch (e) {
+      backtestError = e instanceof Error ? e.message : 'Backtest failed';
+      backtestResult = null;
+    } finally {
+      backtesting = false;
+    }
   }
 
   function formatLargeCents(cents: number): string {
@@ -131,6 +153,30 @@
         </div>
       </div>
     </div>
+
+    <!-- Value Trap Warning -->
+    {#if valuation.trend?.is_value_trap}
+      <div class="trap-warning">
+        <div class="trap-header">
+          <span class="trap-icon">WARNING</span>
+          <span class="trap-title">Potential Value Trap Detected (Score: {valuation.trend.trap_score}/100)</span>
+        </div>
+        <ul class="trap-reasons">
+          {#each valuation.trend.reasons as reason}
+            <li>{reason}</li>
+          {/each}
+        </ul>
+      </div>
+    {:else if valuation.trend && valuation.trend.flags.length > 0}
+      <div class="trap-caution">
+        <span class="trap-title">Minor Concerns ({valuation.trend.trap_score}/100)</span>
+        <ul class="trap-reasons">
+          {#each valuation.trend.reasons as reason}
+            <li>{reason}</li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
 
     <!-- Quality Score -->
     <div class="section">
@@ -220,6 +266,84 @@
         </div>
       </div>
     {/if}
+
+    <!-- Backtesting Sandbox -->
+    <div class="section">
+      <h3>Backtest: "What If?"</h3>
+      <p class="backtest-hint">Pick a past date to see what would have happened if you bought at that price.</p>
+      <div class="backtest-form">
+        <input
+          type="date"
+          bind:value={backtestDate}
+          max={new Date().toISOString().split('T')[0]}
+          min="2020-01-01"
+        />
+        <button class="btn-backtest" onclick={runBacktest} disabled={backtesting || !backtestDate}>
+          {backtesting ? 'Running...' : 'Run Backtest'}
+        </button>
+      </div>
+
+      {#if backtestError}
+        <div class="error" style="margin-top: 0.75rem;">{backtestError}</div>
+      {/if}
+
+      {#if backtestResult}
+        <div class="backtest-results">
+          <div class="backtest-cards">
+            <div class="card">
+              <div class="card-label">Entry Price ({backtestResult.entry_date})</div>
+              <div class="card-value">{formatCents(backtestResult.entry_price_cents)}</div>
+            </div>
+            <div class="card">
+              <div class="card-label">Current Price</div>
+              <div class="card-value">{formatCents(backtestResult.current_price_cents)}</div>
+            </div>
+            <div class="card">
+              <div class="card-label">Total Return</div>
+              <div class="card-value" style="color: {backtestResult.return_pct >= 0 ? '#3fb950' : '#f85149'}">
+                {formatPercent(backtestResult.return_pct)}
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-label">Annualized</div>
+              <div class="card-value" style="color: {backtestResult.annualized_return_pct >= 0 ? '#3fb950' : '#f85149'}">
+                {formatPercent(backtestResult.annualized_return_pct)}
+              </div>
+            </div>
+          </div>
+
+          <div class="backtest-model">
+            <div class="model-row">
+              <span class="model-label">Model Verdict at Entry:</span>
+              <span class="verdict-badge" style="background: {verdictColor(backtestResult.model_verdict)}20; color: {verdictColor(backtestResult.model_verdict)}; border: 1px solid {verdictColor(backtestResult.model_verdict)}40">
+                {verdictLabel(backtestResult.model_verdict)}
+              </span>
+            </div>
+            <div class="model-row">
+              <span class="model-label">Actual Outcome:</span>
+              <span style="color: {backtestResult.actual_outcome === 'GAIN' ? '#3fb950' : '#f85149'}; font-weight: 600;">
+                {backtestResult.actual_outcome} ({formatPercent(backtestResult.return_pct)})
+              </span>
+            </div>
+            <div class="model-row">
+              <span class="model-label">Was Model Correct?</span>
+              <span style="color: {backtestResult.model_correct ? '#3fb950' : '#f85149'}; font-weight: 600;">
+                {backtestResult.model_correct ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <div class="model-row">
+              <span class="model-label">Holding Period:</span>
+              <span>{backtestResult.holding_days} days</span>
+            </div>
+          </div>
+
+          <p class="backtest-disclaimer">
+            Note: Backtest uses current fundamentals (~4 years of history from Yahoo Finance).
+            Results are approximate and should not be used as sole investment guidance.
+          </p>
+        </div>
+      {/if}
+    </div>
   {:else}
     <p class="empty-text">Search for a stock to see its Buffett-style valuation analysis.</p>
   {/if}
@@ -437,7 +561,63 @@
     padding: 3rem;
   }
 
+  .trap-warning {
+    background: #3d1f1f;
+    border: 1px solid #f85149;
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .trap-caution {
+    background: #3d2e00;
+    border: 1px solid #d29922;
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .trap-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .trap-icon { color: #f85149; font-weight: 700; font-size: 0.8rem; }
+  .trap-title { font-weight: 600; color: #e1e4e8; font-size: 0.95rem; }
+  .trap-reasons { margin: 0; padding-left: 1.25rem; }
+  .trap-reasons li { color: #f0883e; font-size: 0.85rem; line-height: 1.5; }
+  .trap-caution .trap-reasons li { color: #d29922; }
+
+  .backtest-hint {
+    color: #8b949e; font-size: 0.85rem; margin: 0 0 0.75rem;
+  }
+  .backtest-form {
+    display: flex; gap: 0.75rem; align-items: center;
+  }
+  .backtest-form input[type="date"] {
+    padding: 0.5rem 0.75rem; background: #0d1117; border: 1px solid #30363d;
+    border-radius: 4px; color: #e1e4e8; font-size: 0.9rem; font-family: inherit;
+  }
+  .backtest-form input[type="date"]:focus { outline: none; border-color: #58a6ff; }
+  .btn-backtest {
+    padding: 0.5rem 1rem; background: #1f6feb; color: #fff; border: none;
+    border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-family: inherit;
+  }
+  .btn-backtest:hover { background: #388bfd; }
+  .btn-backtest:disabled { opacity: 0.5; cursor: not-allowed; }
+  .backtest-results { margin-top: 1rem; }
+  .backtest-cards {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1rem;
+  }
+  .backtest-model {
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+    padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .model-row {
+    display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem;
+  }
+  .model-label { color: #8b949e; min-width: 180px; }
+  .backtest-disclaimer {
+    color: #484f58; font-size: 0.75rem; margin-top: 1rem; font-style: italic;
+  }
+
   @media (max-width: 768px) {
     .cards { grid-template-columns: repeat(2, 1fr); }
+    .backtest-cards { grid-template-columns: repeat(2, 1fr); }
+    .backtest-form { flex-direction: column; align-items: stretch; }
   }
 </style>

@@ -43,7 +43,9 @@ func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler 
 		r.Post("/{id}/trades", portfolioHandler.AddTrade)
 		r.Get("/{id}/trades", portfolioHandler.ListTrades)
 		r.Delete("/{id}/trades/{tradeID}", portfolioHandler.DeleteTrade)
+		r.Patch("/{id}/trades/{tradeID}/bucket", portfolioHandler.UpdateTradeBucket)
 		r.Get("/{id}/holdings", portfolioHandler.GetHoldings)
+		r.Get("/{id}/strategy", portfolioHandler.GetStrategy)
 		r.Get("/{id}/allocation/targets", allocationHandler.GetTargets)
 		r.Put("/{id}/allocation/targets", allocationHandler.SetTargets)
 		r.Get("/{id}/allocation/actual", allocationHandler.GetActual)
@@ -66,6 +68,7 @@ func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler 
 	r.Route("/api/v1/valuation", func(r chi.Router) {
 		r.Get("/{ticker}", valuationHandler.GetValuation)
 		r.Get("/{ticker}/fundamentals", valuationHandler.GetFundamentals)
+		r.Get("/{ticker}/backtest", valuationHandler.BacktestValuation)
 	})
 
 	r.Route("/api/v1/settings", func(r chi.Router) {

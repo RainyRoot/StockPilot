@@ -119,6 +119,7 @@ type addTradeRequest struct {
 	Currency   string  `json:"currency"`
 	ExecutedAt string  `json:"executed_at"` // ISO 8601
 	Notes      string  `json:"notes"`
+	Bucket     string  `json:"bucket"`
 }
 
 func (h *PortfolioHandler) AddTrade(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +165,7 @@ func (h *PortfolioHandler) AddTrade(w http.ResponseWriter, r *http.Request) {
 		r.Context(), id, req.Ticker,
 		domain.TradeType(req.TradeType), req.Quantity,
 		req.PriceCents, req.FeeCents, req.Currency,
-		executedAt, req.Notes,
+		executedAt, req.Notes, req.Bucket,
 	)
 	if err != nil {
 		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
@@ -185,6 +186,28 @@ func (h *PortfolioHandler) DeleteTrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.JSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (h *PortfolioHandler) UpdateTradeBucket(w http.ResponseWriter, r *http.Request) {
+	tradeID, err := strconv.ParseInt(chi.URLParam(r, "tradeID"), 10, 64)
+	if err != nil {
+		httputil.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid trade id")
+		return
+	}
+
+	var req struct {
+		Bucket string `json:"bucket"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputil.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		return
+	}
+
+	if err := h.portfolioService.UpdateTradeBucket(r.Context(), tradeID, req.Bucket); err != nil {
+		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	httputil.JSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
 
 func (h *PortfolioHandler) ListTrades(w http.ResponseWriter, r *http.Request) {
@@ -239,4 +262,19 @@ func (h *PortfolioHandler) GetHoldings(w http.ResponseWriter, r *http.Request) {
 		holdings = []domain.Holding{}
 	}
 	httputil.JSON(w, http.StatusOK, holdings)
+}
+
+func (h *PortfolioHandler) GetStrategy(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		httputil.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid portfolio id")
+		return
+	}
+
+	overview, err := h.portfolioService.GetStrategyOverview(r.Context(), id)
+	if err != nil {
+		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	httputil.JSON(w, http.StatusOK, overview)
 }

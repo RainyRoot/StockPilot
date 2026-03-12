@@ -35,8 +35,10 @@ type PortfolioRepo interface {
 type TradeRepo interface {
 	Create(ctx context.Context, trade *domain.Trade) (*domain.Trade, error)
 	Delete(ctx context.Context, id int64) error
+	UpdateBucket(ctx context.Context, id int64, bucket string) error
 	ListByPortfolio(ctx context.Context, portfolioID int64, limit int, offset int) ([]domain.Trade, int, error)
 	GetHoldings(ctx context.Context, portfolioID int64) ([]HoldingRow, error)
+	GetHoldingsByBucket(ctx context.Context, portfolioID int64) ([]BucketHoldingRow, error)
 }
 
 type AllocationRepo interface {
@@ -55,4 +57,10 @@ type HoldingRow struct {
 	NetQuantity    float64
 	TotalCostCents int64 // sum of (qty * price) for BUY minus SELL proceeds
 	TotalFeeCents  int64
+}
+
+// BucketHoldingRow is like HoldingRow but grouped by bucket as well.
+type BucketHoldingRow struct {
+	HoldingRow
+	Bucket string
 }

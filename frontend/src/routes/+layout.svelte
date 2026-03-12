@@ -19,6 +19,7 @@
       <li><a href="/watchlist" onclick={() => menuOpen = false}>Watchlist</a></li>
       <li><a href="/portfolio" onclick={() => menuOpen = false}>Portfolio</a></li>
       <li><a href="/valuation" onclick={() => menuOpen = false}>Valuation</a></li>
+      <li><a href="/strategy" onclick={() => menuOpen = false}>Strategy</a></li>
       <li><a href="/allocation" onclick={() => menuOpen = false}>Allocation</a></li>
       <li><a href="/settings" onclick={() => menuOpen = false}>Settings</a></li>
     </ul>

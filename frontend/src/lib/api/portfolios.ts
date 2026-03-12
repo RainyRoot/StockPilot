@@ -25,7 +25,27 @@ export interface Trade {
   currency: string;
   executed_at: string;
   notes?: string;
+  bucket?: string;
   created_at: string;
+}
+
+export interface BucketSummary {
+  bucket: string;
+  target_percent: number;
+  invested_cents: number;
+  current_cents: number;
+  pl_cents: number;
+  pl_percent: number;
+  actual_percent: number;
+  holding_count: number;
+}
+
+export interface StrategyOverview {
+  buckets: BucketSummary[];
+  total_invested_cents: number;
+  total_current_cents: number;
+  total_pl_cents: number;
+  total_pl_percent: number;
 }
 
 export interface Holding {
@@ -82,6 +102,7 @@ export async function addTrade(
   currency: string,
   executedAt: string,
   notes: string = '',
+  bucket: string = '',
 ): Promise<Trade> {
   return api<Trade>(`/portfolios/${portfolioId}/trades`, {
     method: 'POST',
@@ -94,6 +115,7 @@ export async function addTrade(
       currency,
       executed_at: executedAt,
       notes,
+      bucket,
     }),
   });
 }
@@ -102,10 +124,21 @@ export async function deleteTrade(portfolioId: number, tradeId: number): Promise
   await api(`/portfolios/${portfolioId}/trades/${tradeId}`, { method: 'DELETE' });
 }
 
+export async function updateTradeBucket(portfolioId: number, tradeId: number, bucket: string): Promise<void> {
+  await api(`/portfolios/${portfolioId}/trades/${tradeId}/bucket`, {
+    method: 'PATCH',
+    body: JSON.stringify({ bucket }),
+  });
+}
+
 export async function listTrades(portfolioId: number, limit: number = 50, offset: number = 0): Promise<TradeListResponse> {
   return api<TradeListResponse>(`/portfolios/${portfolioId}/trades?limit=${limit}&offset=${offset}`);
 }
 
 export async function getHoldings(portfolioId: number): Promise<Holding[]> {
   return api<Holding[]>(`/portfolios/${portfolioId}/holdings`);
+}
+
+export async function getStrategyOverview(portfolioId: number): Promise<StrategyOverview> {
+  return api<StrategyOverview>(`/portfolios/${portfolioId}/strategy`);
 }

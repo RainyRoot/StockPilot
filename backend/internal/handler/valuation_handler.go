@@ -47,6 +47,27 @@ func (h *ValuationHandler) GetFundamentals(w http.ResponseWriter, r *http.Reques
 	httputil.JSON(w, http.StatusOK, fundamentals)
 }
 
+func (h *ValuationHandler) BacktestValuation(w http.ResponseWriter, r *http.Request) {
+	ticker := chi.URLParam(r, "ticker")
+	if ticker == "" {
+		httputil.Error(w, http.StatusBadRequest, "BAD_REQUEST", "ticker is required")
+		return
+	}
+
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		httputil.Error(w, http.StatusBadRequest, "BAD_REQUEST", "date query parameter is required (YYYY-MM-DD)")
+		return
+	}
+
+	result, err := h.valuationService.BacktestValuation(r.Context(), ticker, date)
+	if err != nil {
+		httputil.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	httputil.JSON(w, http.StatusOK, result)
+}
+
 func (h *ValuationHandler) ScreenWatchlist(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {

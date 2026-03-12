@@ -48,6 +48,7 @@ type yahooQuoteSummaryResponse struct {
 			DefaultKeyStatistics     yahooKeyStatistics          `json:"defaultKeyStatistics"`
 			IncomeStatementHistory   yahooIncomeStatementHistory `json:"incomeStatementHistory"`
 			CashflowStatementHistory yahooCashflowHistory        `json:"cashflowStatementHistory"`
+			BalanceSheetHistory      yahooBalanceSheetHistory     `json:"balanceSheetHistory"`
 		} `json:"result"`
 	} `json:"quoteSummary"`
 }
@@ -77,9 +78,21 @@ type yahooRawField struct {
 
 type yahooIncomeStatementHistory struct {
 	IncomeStatementHistory []struct {
-		TotalRevenue yahooRawField `json:"totalRevenue"`
-		NetIncome    yahooRawField `json:"netIncome"`
+		TotalRevenue    yahooRawField `json:"totalRevenue"`
+		GrossProfit     yahooRawField `json:"grossProfit"`
+		OperatingIncome yahooRawField `json:"operatingIncome"`
+		NetIncome       yahooRawField `json:"netIncome"`
 	} `json:"incomeStatementHistory"`
+}
+
+type yahooBalanceSheetHistory struct {
+	BalanceSheetStatements []struct {
+		TotalAssets             yahooRawField `json:"totalAssets"`
+		TotalLiab               yahooRawField `json:"totalLiab"`
+		LongTermDebt            yahooRawField `json:"longTermDebt"`
+		TotalCurrentLiabilities yahooRawField `json:"totalCurrentLiabilities"`
+		TotalStockholderEquity  yahooRawField `json:"totalStockholderEquity"`
+	} `json:"balanceSheetStatements"`
 }
 
 type yahooCashflowHistory struct {

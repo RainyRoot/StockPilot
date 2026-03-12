@@ -6,6 +6,7 @@
     deletePortfolio,
     addTrade,
     deleteTrade,
+    updateTradeBucket,
     listTrades,
     getHoldings,
     type Portfolio,
@@ -44,6 +45,7 @@
   let tradeCurrency = $state('USD');
   let tradeDate = $state(new Date().toISOString().split('T')[0]);
   let tradeNotes = $state('');
+  let tradeBucket = $state('');
 
   async function loadPortfolios() {
     try {
@@ -173,6 +175,7 @@
         tradeCurrency,
         executedAt,
         tradeNotes,
+        tradeBucket,
       );
       // Reset form
       showTradeForm = false;
@@ -182,6 +185,7 @@
       tradePrice = '';
       tradeFee = '1.00';
       tradeNotes = '';
+      tradeBucket = '';
       // Reload
       await loadHoldings();
       await loadTrades();
@@ -327,6 +331,15 @@
           <label for="trade-notes">Notes</label>
           <input id="trade-notes" type="text" placeholder="Optional notes..." bind:value={tradeNotes} />
         </div>
+        <div class="form-group">
+          <label for="trade-bucket">Bucket</label>
+          <select id="trade-bucket" bind:value={tradeBucket}>
+            <option value="">-- None --</option>
+            <option value="ETF">ETF</option>
+            <option value="Stocks">Stocks</option>
+            <option value="Trading">Trading</option>
+          </select>
+        </div>
       </div>
       <div class="form-actions">
         <button class="btn-submit" onclick={handleSubmitTrade}>
@@ -414,6 +427,7 @@
               <th class="num">Price</th>
               <th class="num">Fee</th>
               <th class="num">Total</th>
+              <th>Bucket</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -431,6 +445,23 @@
                 <td class="num">{formatCents(t.price_cents, t.currency)}</td>
                 <td class="num">{formatCents(t.fee_cents, t.currency)}</td>
                 <td class="num">{formatCents(Math.round(t.quantity * t.price_cents) + t.fee_cents, t.currency)}</td>
+                <td class="bucket-cell">
+                  <select
+                    class="bucket-select"
+                    value={t.bucket || ''}
+                    onchange={async (e) => {
+                      if (!activePortfolio) return;
+                      const val = (e.target as HTMLSelectElement).value;
+                      await updateTradeBucket(activePortfolio.id, t.id, val);
+                      t.bucket = val;
+                    }}
+                  >
+                    <option value="">—</option>
+                    <option value="ETF">ETF</option>
+                    <option value="Stocks">Stocks</option>
+                    <option value="Trading">Trading</option>
+                  </select>
+                </td>
                 <td>
                   <button class="btn-remove" onclick={() => handleDeleteTrade(t.id)}>Delete</button>
                 </td>
@@ -570,6 +601,13 @@
   .trade-type { font-weight: 600; font-size: 0.8rem; padding: 0.1rem 0.4rem; border-radius: 3px; }
   .trade-type.buy { background: #0d3321; color: #3fb950; }
   .trade-type.sell { background: #3d1f1f; color: #f85149; }
+
+  .bucket-select {
+    padding: 0.2rem 0.4rem; background: #0d1117; border: 1px solid #30363d;
+    border-radius: 4px; color: #e1e4e8; font-size: 0.8rem; cursor: pointer;
+  }
+  .bucket-select:hover { border-color: #58a6ff; }
+  .bucket-select:focus { outline: none; border-color: #58a6ff; }
 
   .btn-remove {
     padding: 0.25rem 0.5rem; background: none; border: 1px solid #30363d;

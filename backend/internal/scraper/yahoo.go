@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -28,29 +29,84 @@ var userAgents = []string{
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
 }
 
+type cacheEntry struct {
+	data      []byte
+	expiresAt time.Time
+}
+
 type YahooClient struct {
 	httpClient  *http.Client
 	rateLimiter *rate.Limiter
 	crumb       string
 	cookies     []*http.Cookie
 	crumbMu     sync.RWMutex
+	cache       map[string]cacheEntry
+	cacheMu     sync.RWMutex
 }
 
 func NewYahooClient() *YahooClient {
 	return &YahooClient{
 		httpClient: &http.Client{
-			Timeout: 15 * time.Second,
+			Timeout: 30 * time.Second,
 		},
-		rateLimiter: rate.NewLimiter(rate.Every(200*time.Millisecond), 5),
+		rateLimiter: rate.NewLimiter(rate.Every(500*time.Millisecond), 3),
+		cache:       make(map[string]cacheEntry),
 	}
 }
 
 func (c *YahooClient) doRequest(ctx context.Context, reqURL string) ([]byte, error) {
+	// Check cache first (30s TTL — avoids duplicate calls for same data)
+	c.cacheMu.RLock()
+	if entry, ok := c.cache[reqURL]; ok && time.Now().Before(entry.expiresAt) {
+		c.cacheMu.RUnlock()
+		return entry.data, nil
+	}
+	c.cacheMu.RUnlock()
+
+	data, err := c.doRequestWithRetry(ctx, reqURL, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	c.cacheMu.Lock()
+	c.cache[reqURL] = cacheEntry{data: data, expiresAt: time.Now().Add(30 * time.Second)}
+	c.cacheMu.Unlock()
+
+	return data, nil
+}
+
+func (c *YahooClient) doRequestWithRetry(ctx context.Context, reqURL string, attempt int) ([]byte, error) {
+	if attempt > 3 {
+		return nil, fmt.Errorf("yahoo request failed after %d retries", attempt)
+	}
+
 	if err := c.rateLimiter.Wait(ctx); err != nil {
 		return nil, fmt.Errorf("rate limit: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	// Ensure we have a crumb before first request
+	c.crumbMu.RLock()
+	hasCrumb := c.crumb != ""
+	c.crumbMu.RUnlock()
+	if !hasCrumb {
+		if err := c.refreshCrumb(ctx); err != nil {
+			return nil, fmt.Errorf("initial crumb fetch: %w", err)
+		}
+	}
+
+	// Append crumb to URL if not already present
+	c.crumbMu.RLock()
+	finalURL := reqURL
+	if c.crumb != "" && !strings.Contains(reqURL, "crumb=") {
+		if strings.Contains(reqURL, "?") {
+			finalURL += "&crumb=" + url.QueryEscape(c.crumb)
+		} else {
+			finalURL += "?crumb=" + url.QueryEscape(c.crumb)
+		}
+	}
+	c.crumbMu.RUnlock()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", finalURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -71,10 +127,22 @@ func (c *YahooClient) doRequest(ctx context.Context, reqURL string) ([]byte, err
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		log.Printf("[yahoo] %d on attempt %d, refreshing crumb: %s", resp.StatusCode, attempt, reqURL)
 		if err := c.refreshCrumb(ctx); err != nil {
 			return nil, fmt.Errorf("refresh crumb after %d: %w", resp.StatusCode, err)
 		}
-		return c.doRequest(ctx, reqURL)
+		return c.doRequestWithRetry(ctx, reqURL, attempt+1)
+	}
+
+	if resp.StatusCode == 429 {
+		backoff := time.Duration(3*(attempt+1)) * time.Second
+		log.Printf("[yahoo] 429 rate limited on attempt %d, backing off %v: %s", attempt, backoff, reqURL)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoff):
+		}
+		return c.doRequestWithRetry(ctx, reqURL, attempt+1)
 	}
 
 	if resp.StatusCode != 200 {
@@ -110,6 +178,7 @@ func (c *YahooClient) refreshCrumb(ctx context.Context) error {
 	defer crumbResp.Body.Close()
 	crumbBytes, _ := io.ReadAll(crumbResp.Body)
 	c.crumb = string(crumbBytes)
+	log.Printf("[yahoo] refreshed crumb: %q (cookies: %d)", c.crumb, len(c.cookies))
 
 	return nil
 }
@@ -128,12 +197,6 @@ func (c *YahooClient) GetQuote(ctx context.Context, ticker string) (*domain.Quot
 func (c *YahooClient) GetBatchQuotes(ctx context.Context, tickers []string) ([]domain.Quote, error) {
 	symbols := strings.Join(tickers, ",")
 	reqURL := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s", url.QueryEscape(symbols))
-
-	c.crumbMu.RLock()
-	if c.crumb != "" {
-		reqURL += "&crumb=" + url.QueryEscape(c.crumb)
-	}
-	c.crumbMu.RUnlock()
 
 	body, err := c.doRequest(ctx, reqURL)
 	if err != nil {
@@ -266,17 +329,11 @@ func (c *YahooClient) GetHistory(ctx context.Context, ticker string, rangeStr st
 }
 
 func (c *YahooClient) GetFundamentals(ctx context.Context, ticker string) (*domain.Fundamentals, error) {
-	modules := "financialData,defaultKeyStatistics,incomeStatementHistory,cashflowStatementHistory"
+	modules := "financialData,defaultKeyStatistics,incomeStatementHistory,cashflowStatementHistory,balanceSheetHistory"
 	reqURL := fmt.Sprintf(
 		"https://query2.finance.yahoo.com/v10/finance/quoteSummary/%s?modules=%s",
 		url.PathEscape(ticker), url.QueryEscape(modules),
 	)
-
-	c.crumbMu.RLock()
-	if c.crumb != "" {
-		reqURL += "&crumb=" + url.QueryEscape(c.crumb)
-	}
-	c.crumbMu.RUnlock()
 
 	body, err := c.doRequest(ctx, reqURL)
 	if err != nil {
@@ -315,6 +372,37 @@ func (c *YahooClient) GetFundamentals(ctx context.Context, ticker string) (*doma
 		netIncomeHistory = append(netIncomeHistory, money.FloatToCents(stmt.NetIncome.Raw))
 	}
 
+	// Extract historical revenue (most recent first)
+	var revenueHistory []int64
+	for _, stmt := range r.IncomeStatementHistory.IncomeStatementHistory {
+		revenueHistory = append(revenueHistory, money.FloatToCents(stmt.TotalRevenue.Raw))
+	}
+
+	// Extract historical FCF (most recent first)
+	var fcfHistory []int64
+	for _, stmt := range r.CashflowStatementHistory.CashflowStatements {
+		fcfVal := stmt.FreeCashFlow.Raw
+		if fcfVal == 0 {
+			fcfVal = stmt.TotalCashFromOperatingActivities.Raw + stmt.CapitalExpenditures.Raw
+		}
+		fcfHistory = append(fcfHistory, money.FloatToCents(fcfVal))
+	}
+
+	// Extract historical long-term debt (most recent first)
+	var debtHistory []int64
+	for _, stmt := range r.BalanceSheetHistory.BalanceSheetStatements {
+		debtHistory = append(debtHistory, money.FloatToCents(stmt.LongTermDebt.Raw))
+	}
+
+	// Extract historical operating margin (most recent first)
+	var marginHistory []float64
+	for _, stmt := range r.IncomeStatementHistory.IncomeStatementHistory {
+		if stmt.TotalRevenue.Raw > 0 {
+			margin := stmt.OperatingIncome.Raw / stmt.TotalRevenue.Raw
+			marginHistory = append(marginHistory, margin)
+		}
+	}
+
 	return &domain.Fundamentals{
 		FiscalYear:        time.Now().Year(),
 		RevenueCents:      money.FloatToCents(fd.TotalRevenue.Raw),
@@ -328,6 +416,10 @@ func (c *YahooClient) GetFundamentals(ctx context.Context, ticker string) (*doma
 		ROE:               fd.ReturnOnEquity.Raw,
 		ProfitMargin:      fd.ProfitMargins.Raw,
 		NetIncomeHistory:  netIncomeHistory,
+		RevenueHistory:    revenueHistory,
+		FCFHistory:        fcfHistory,
+		DebtHistory:       debtHistory,
+		MarginHistory:     marginHistory,
 	}, nil
 }
 

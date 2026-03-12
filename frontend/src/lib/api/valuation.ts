@@ -9,6 +9,24 @@ export interface MethodResult {
 
 export type ValuationVerdict = 'UNDERVALUED' | 'FAIRLY_VALUED_LOW' | 'FAIR_VALUE' | 'OVERVALUED';
 
+export type TrapFlag =
+  | 'DECLINING_REVENUE'
+  | 'SHRINKING_MARGINS'
+  | 'GROWING_DEBT'
+  | 'DECLINING_FCF'
+  | 'DECLINING_EARNINGS';
+
+export interface FundamentalTrend {
+  is_value_trap: boolean;
+  trap_score: number;
+  flags: TrapFlag[];
+  reasons: string[];
+  revenue_cagr: number;
+  earnings_cagr: number;
+  fcf_trend: string;
+  debt_trend: string;
+}
+
 export interface ValuationResult {
   ticker: string;
   current_price_cents: number;
@@ -17,6 +35,7 @@ export interface ValuationResult {
   verdict: ValuationVerdict;
   quality_score: number;
   methods: MethodResult[];
+  trend?: FundamentalTrend;
 }
 
 export interface Fundamentals {
@@ -45,4 +64,24 @@ export async function getFundamentals(ticker: string): Promise<Fundamentals> {
 
 export async function screenWatchlist(watchlistId: number): Promise<ValuationResult[]> {
   return api<ValuationResult[]>(`/watchlists/${watchlistId}/screen`);
+}
+
+export interface BacktestResult {
+  ticker: string;
+  entry_date: string;
+  entry_price_cents: number;
+  current_price_cents: number;
+  return_pct: number;
+  annualized_return_pct: number;
+  holding_days: number;
+  entry_valuation: ValuationResult;
+  model_correct: boolean;
+  model_verdict: string;
+  actual_outcome: string;
+}
+
+export async function backtestValuation(ticker: string, date: string): Promise<BacktestResult> {
+  return api<BacktestResult>(
+    `/valuation/${encodeURIComponent(ticker)}/backtest?date=${encodeURIComponent(date)}`
+  );
 }

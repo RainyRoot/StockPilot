@@ -21,5 +21,25 @@ type Trade struct {
 	Currency    string    `json:"currency"`
 	ExecutedAt  time.Time `json:"executed_at"`
 	Notes       string    `json:"notes,omitempty"`
+	Bucket      string    `json:"bucket,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
+}
+
+type BucketSummary struct {
+	Bucket        string  `json:"bucket"`
+	TargetPercent float64 `json:"target_percent"`
+	InvestedCents int64   `json:"invested_cents"`
+	CurrentCents  int64   `json:"current_cents"`
+	PLCents       int64   `json:"pl_cents"`
+	PLPercent     float64 `json:"pl_percent"`
+	ActualPercent float64 `json:"actual_percent"`
+	HoldingCount  int     `json:"holding_count"`
+}
+
+type StrategyOverview struct {
+	Buckets       []BucketSummary `json:"buckets"`
+	TotalInvested int64           `json:"total_invested_cents"`
+	TotalCurrent  int64           `json:"total_current_cents"`
+	TotalPL       int64           `json:"total_pl_cents"`
+	TotalPLPct    float64         `json:"total_pl_percent"`
 }

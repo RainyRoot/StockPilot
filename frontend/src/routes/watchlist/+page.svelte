@@ -299,6 +299,7 @@
               <th class="num">Margin</th>
               <th class="num">Quality</th>
               <th>Verdict</th>
+              <th>Trap?</th>
             </tr>
           </thead>
           <tbody>
@@ -315,6 +316,15 @@
                 <td class="num">{r.quality_score}/100</td>
                 <td>
                   <span class="verdict-badge {verdictColor(r.verdict)}">{verdictLabel(r.verdict)}</span>
+                </td>
+                <td>
+                  {#if r.trend?.is_value_trap}
+                    <span class="trap-badge">TRAP</span>
+                  {:else if r.trend && r.trend.flags.length > 0}
+                    <span class="caution-badge">Caution</span>
+                  {:else}
+                    <span class="ok-badge">OK</span>
+                  {/if}
                 </td>
               </tr>
             {/each}
@@ -623,6 +633,19 @@
     color: #8b949e;
     text-align: center;
     padding: 2rem;
+  }
+
+  .trap-badge {
+    font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.4rem;
+    border-radius: 3px; background: #3d1f1f; color: #f85149;
+  }
+  .caution-badge {
+    font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.4rem;
+    border-radius: 3px; background: #3d2e00; color: #d29922;
+  }
+  .ok-badge {
+    font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.4rem;
+    border-radius: 3px; background: #0d3321; color: #3fb950;
   }
 
   @media (max-width: 768px) {
