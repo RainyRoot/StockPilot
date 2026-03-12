@@ -3,9 +3,12 @@
 # Development
 dev:
 	@echo "Starting StockPilot development servers..."
-	@$(MAKE) dev-backend &
-	@$(MAKE) dev-frontend &
-	@wait
+	@lsof -ti:8080 | xargs -r kill 2>/dev/null || true
+	@lsof -ti:5173 | xargs -r kill 2>/dev/null || true
+	@trap 'kill 0' EXIT; \
+		(cd backend && go run ./cmd/server/) & \
+		(cd frontend && PATH="$$HOME/.local/bin:$$PATH" pnpm dev) & \
+		wait
 
 dev-backend:
 	cd backend && go run ./cmd/server/
