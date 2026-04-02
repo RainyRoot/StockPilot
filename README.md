@@ -1,19 +1,19 @@
 # StockPilot
 
-A self-hosted stock portfolio tracker and analysis tool. StockPilot combines a Go REST API backend with a SvelteKit frontend to give you real-time quotes, portfolio tracking, valuation models, allocation analysis, and more — all powered by Yahoo Finance data.
+A self-hosted stock portfolio tracker and analysis tool. StockPilot combines a Go REST API backend with a SvelteKit frontend to give you real-time quotes, portfolio tracking, valuation models, allocation analysis, and more - all powered by Yahoo Finance data.
 
 ## Features
 
-- **Portfolio Management** — Create multiple portfolios, log trades (buy/sell), and track holdings in real time
-- **Live Stock Quotes** — Search tickers and get current prices from Yahoo Finance (US + German markets)
-- **Dashboard** — At-a-glance view of portfolio performance, P&L breakdown, and historical performance charts
-- **Valuation Models** — PE, PEG, and fundamental analysis with historical EPS data and backtesting
-- **Allocation Targets** — Set target allocations by sector/region and get rebalancing suggestions
-- **Portfolio Health** — Automated alerts for concentration risk, overweight positions, and top pick recommendations
-- **Watchlists** — Track stocks you're interested in and run screening filters
-- **Strategy Spread** — Organize trades into buckets (core, growth, speculative, etc.)
-- **Data Export** — Export holdings and trades as CSV
-- **Configurable Settings** — Customize currency display, alert thresholds, and strategy types
+- **Portfolio Management** - Create multiple portfolios, log trades (buy/sell), and track holdings in real time
+- **Live Stock Quotes** - Search tickers and get current prices from Yahoo Finance (US + German markets)
+- **Dashboard** - At-a-glance view of portfolio performance, P&L breakdown, and historical performance charts
+- **Valuation Models** - PE, PEG, and fundamental analysis with historical EPS data and backtesting
+- **Allocation Targets** - Set target allocations by sector/region and get rebalancing suggestions
+- **Portfolio Health** - Automated alerts for concentration risk, overweight positions, and top pick recommendations
+- **Watchlists** - Track stocks you're interested in and run screening filters
+- **Strategy Spread** - Organize trades into buckets (core, growth, speculative, etc.)
+- **Data Export** - Export holdings and trades as CSV
+- **Configurable Settings** - Customize currency display, alert thresholds, and strategy types
 
 ## Download & Run (no install required)
 
@@ -101,13 +101,13 @@ Access the web UI at `http://localhost:8080`.
 
 All endpoints live under `/api/v1`. Key routes:
 
-- `GET /api/v1/stocks/search?q=AAPL` — Search tickers
-- `GET /api/v1/stocks/{ticker}` — Live quote
-- `GET /api/v1/portfolios` — List portfolios
-- `POST /api/v1/portfolios/{id}/trades` — Record a trade
-- `GET /api/v1/dashboard` — Dashboard overview
-- `GET /api/v1/valuation/{ticker}` — Valuation analysis
-- `GET /api/v1/settings` — User settings
+- `GET /api/v1/stocks/search?q=AAPL` - Search tickers
+- `GET /api/v1/stocks/{ticker}` - Live quote
+- `GET /api/v1/portfolios` - List portfolios
+- `POST /api/v1/portfolios/{id}/trades` - Record a trade
+- `GET /api/v1/dashboard` - Dashboard overview
+- `GET /api/v1/valuation/{ticker}` - Valuation analysis
+- `GET /api/v1/settings` - User settings
 
 ## Contributing
 
