@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean
+.PHONY: dev dev-backend dev-frontend build build-backend build-frontend build-release clean
 
 # Development
 dev:
@@ -25,9 +25,17 @@ build-backend:
 build-frontend:
 	cd frontend && pnpm build
 
+# Release build: embeds frontend into Go binary
+build-release:
+	cd frontend && PATH="$$HOME/.local/bin:$$PATH" pnpm install && PATH="$$HOME/.local/bin:$$PATH" pnpm build
+	rm -rf backend/cmd/server/static
+	cp -r frontend/build backend/cmd/server/static
+	cd backend && CGO_ENABLED=0 go build -ldflags="-s -w" -o stockpilot ./cmd/server/
+
 # Clean
 clean:
 	rm -f backend/stockpilot-server
+	rm -f backend/stockpilot
 	rm -f backend/*.db
 	rm -rf frontend/.svelte-kit
 	rm -rf frontend/build

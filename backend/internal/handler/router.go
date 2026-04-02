@@ -1,13 +1,15 @@
 package handler
 
 import (
+	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rainyroot/stockpilot/backend/pkg/httputil"
 )
 
-func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler *WatchlistHandler, portfolioHandler *PortfolioHandler, dashboardHandler *DashboardHandler, valuationHandler *ValuationHandler, allocationHandler *AllocationHandler, healthHandler *HealthHandler, settingsHandler *SettingsHandler, exportHandler *ExportHandler) http.Handler {
+func NewRouter(frontendFS fs.FS, frontendURL string, stockHandler *StockHandler, watchlistHandler *WatchlistHandler, portfolioHandler *PortfolioHandler, dashboardHandler *DashboardHandler, valuationHandler *ValuationHandler, allocationHandler *AllocationHandler, healthHandler *HealthHandler, settingsHandler *SettingsHandler, exportHandler *ExportHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(Logger)
@@ -76,5 +78,26 @@ func NewRouter(frontendURL string, stockHandler *StockHandler, watchlistHandler 
 		r.Put("/", settingsHandler.Update)
 	})
 
+	// Serve embedded frontend for all non-API routes (SPA fallback)
+	r.Get("/*", spaHandler(frontendFS))
+
 	return r
+}
+
+func spaHandler(fsys fs.FS) http.HandlerFunc {
+	fileServer := http.FileServer(http.FS(fsys))
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path == "" {
+			path = "."
+		}
+		if f, err := fsys.Open(path); err == nil {
+			f.Close()
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+		// File not found: serve index.html for client-side routing
+		r.URL.Path = "/"
+		fileServer.ServeHTTP(w, r)
+	}
 }

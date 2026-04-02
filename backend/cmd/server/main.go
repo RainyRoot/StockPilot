@@ -1,7 +1,9 @@
 package main
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 
@@ -11,6 +13,9 @@ import (
 	"github.com/rainyroot/stockpilot/backend/internal/scraper"
 	"github.com/rainyroot/stockpilot/backend/internal/service"
 )
+
+//go:embed static
+var staticFiles embed.FS
 
 func main() {
 	cfg := config.Load()
@@ -49,7 +54,12 @@ func main() {
 	settingsHandler := handler.NewSettingsHandler(settingsService)
 	exportHandler := handler.NewExportHandler(exportService)
 
-	router := handler.NewRouter(cfg.FrontendURL, stockHandler, watchlistHandler, portfolioHandler, dashboardHandler, valuationHandler, allocationHandler, healthHandler, settingsHandler, exportHandler)
+	frontendFS, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		log.Fatalf("failed to load embedded frontend: %v", err)
+	}
+
+	router := handler.NewRouter(frontendFS, cfg.FrontendURL, stockHandler, watchlistHandler, portfolioHandler, dashboardHandler, valuationHandler, allocationHandler, healthHandler, settingsHandler, exportHandler)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("StockPilot API server starting on %s", addr)
