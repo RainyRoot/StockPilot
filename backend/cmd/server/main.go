@@ -14,7 +14,7 @@ import (
 	"github.com/rainyroot/stockpilot/backend/internal/service"
 )
 
-//go:embed static
+//go:embed all:static
 var staticFiles embed.FS
 
 func main() {
