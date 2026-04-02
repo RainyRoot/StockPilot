@@ -6,6 +6,9 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os/exec"
+	"runtime"
+	"time"
 
 	"github.com/rainyroot/stockpilot/backend/internal/config"
 	"github.com/rainyroot/stockpilot/backend/internal/handler"
@@ -62,10 +65,30 @@ func main() {
 	router := handler.NewRouter(frontendFS, cfg.FrontendURL, stockHandler, watchlistHandler, portfolioHandler, dashboardHandler, valuationHandler, allocationHandler, healthHandler, settingsHandler, exportHandler)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
-	log.Printf("StockPilot API server starting on %s", addr)
-	log.Printf("Frontend URL: %s", cfg.FrontendURL)
+	url := fmt.Sprintf("http://localhost:%d", cfg.Port)
+	log.Printf("StockPilot running at %s", url)
+
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		openBrowser(url)
+	}()
 
 	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatalf("server failed: %v", err)
+	}
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Printf("could not open browser: %v", err)
 	}
 }

@@ -15,7 +15,25 @@ A self-hosted stock portfolio tracker and analysis tool. StockPilot combines a G
 - **Data Export** — Export holdings and trades as CSV
 - **Configurable Settings** — Customize currency display, alert thresholds, and strategy types
 
-## Quick Start
+## Download & Run (no install required)
+
+Grab the latest binary from the [Releases](https://github.com/RainyRoot/StockPilot/releases) page.
+
+**Linux**
+```bash
+chmod +x stockpilot-linux-amd64
+./stockpilot-linux-amd64
+```
+
+**Windows**
+
+Just double-click `stockpilot-windows-amd64.exe`.
+
+StockPilot will open your browser automatically at `http://localhost:8080`. Your data is stored in `stockpilot.db` in the same directory.
+
+---
+
+## Build from Source
 
 ```bash
 git clone https://github.com/RainyRoot/StockPilot.git
@@ -24,8 +42,6 @@ make dev
 ```
 
 The backend API starts on `http://localhost:8080` and the SvelteKit frontend on `http://localhost:5173`.
-
-See [INSTALL.md](INSTALL.md) for detailed setup and [USAGE.md](USAGE.md) for usage examples.
 
 ## Tech Stack
 
