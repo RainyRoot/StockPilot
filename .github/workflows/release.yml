@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
@@ -68,3 +69,19 @@ jobs:
           files: |
             backend/stockpilot-linux-amd64
             backend/stockpilot-windows-amd64.exe
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/stockpilot:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/stockpilot:latest
